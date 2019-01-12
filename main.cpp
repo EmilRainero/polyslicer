@@ -10,10 +10,11 @@
 #include "Triangle.h"
 #include "TriangleMesh.h"
 #include "LineSegment.h"
+#include "BoundingBox.h"
+#include "Contour.h"
 
 
 double eps = 0.0001; // round all vertices in stl file to within this epsilon
-
 
 
 float roundToNearestEpsilon(float x, double epsilon, int mod, int rem) {
@@ -163,21 +164,8 @@ Vector3 TrivialClosure_find_A(std::vector<LineSegment> &segs, Vector3 u) {
     return {+INFINITY, +INFINITY, +INFINITY};
 }
 
-typedef struct _bounding_box {
-    double xMin;
-    double xMax;
-    double yMin;
-    double yMax;
-    bool firstPoint;
-} bounding_box;
 
-typedef struct _contour {
-    bool external;
-    bool clockwise;
-    std::vector<Vector3> P;
-} contour;
-
-void TrivialLoopClosure(std::vector<LineSegment> segs, std::vector<contour> &contours) {
+void TrivialLoopClosure(std::vector<LineSegment> segs, std::vector<Contour> &contours) {
 
     while (segs.size() > 0) {
 
@@ -223,10 +211,10 @@ void TrivialLoopClosure(std::vector<LineSegment> segs, std::vector<contour> &con
     }
 }
 
-LineSegment create_ray(Vector3 point, bounding_box bb, int index) {
+LineSegment create_ray(Vector3 point, BoundingBox bbox, int index) {
     /* Create outside point: */
-    double epsilon = (bb.xMax - bb.xMin) / 100.0;
-    Vector3 outside(bb.xMin - epsilon, bb.yMin);
+    double epsilon = (bbox.xMax - bbox.xMin) / 100.0;
+    Vector3 outside(bbox.xMin - epsilon, bbox.yMin);
     LineSegment v(outside, point, index);
     return v;
 }
@@ -267,16 +255,7 @@ bool ray_intersect(LineSegment ray, LineSegment side) {
     return false;
 }
 
-bounding_box create_bounding_box() {
-    bounding_box bb;
-    bb.xMax = std::numeric_limits<double>::min();
-    bb.xMin = std::numeric_limits<double>::max();
-    bb.yMax = std::numeric_limits<double>::min();
-    bb.yMin = std::numeric_limits<double>::max();
-    return bb;
-}
-
-void update_bounding_box(Vector3 point, bounding_box *bb) {
+void update_bounding_box(Vector3 point, BoundingBox *bb) {
     /* Setting the bounding box: */
     if (point.x > bb->xMax) {
         bb->xMax = point.x;
@@ -290,14 +269,14 @@ void update_bounding_box(Vector3 point, bounding_box *bb) {
     }
 }
 
-bool insided_bounding_box(Vector3 point, bounding_box bb) {
+bool insided_bounding_box(Vector3 point, BoundingBox bb) {
     if ((point.x < bb.xMin) || (point.x > bb.xMax) || (point.y < bb.yMin) || (point.y > bb.yMax)) {
         return false;
     }
     return true;
 }
 
-bool contains(Vector3 point, bounding_box bb, std::vector<LineSegment> sides, int index) {
+bool contains(Vector3 point, BoundingBox bb, std::vector<LineSegment> sides, int index) {
     if (insided_bounding_box(point, bb)) {
         LineSegment ray = create_ray(point, bb, index);
         int intersection = 0;
@@ -314,7 +293,7 @@ bool contains(Vector3 point, bounding_box bb, std::vector<LineSegment> sides, in
     return false;
 }
 
-void add_point(Vector3 p1, Vector3 p2, std::vector<LineSegment> &t, bounding_box *bb, bool first, int index) {
+void add_point(Vector3 p1, Vector3 p2, std::vector<LineSegment> &t, BoundingBox *bb, bool first, int index) {
     if (first) {
         update_bounding_box(p1, bb);
     }
@@ -323,23 +302,23 @@ void add_point(Vector3 p1, Vector3 p2, std::vector<LineSegment> &t, bounding_box
     t.push_back(line);
 }
 
-void ray_casting(std::vector<contour> &polygons) {
+void ray_casting(std::vector<Contour> &polygons) {
 
     std::vector<LineSegment> segments;
 
-    bounding_box bb = create_bounding_box();
+    BoundingBox bbox;
 
     /*Creating the line segments of each contour: */
     for (int i = 0; i < polygons.size(); i++) {
         double area = 0.0;
-        std::vector<Vector3> Pi = polygons.at(i).P;
+        std::vector<Vector3> Pi = polygons.at(i).points;
         for (int j = 1; j < Pi.size(); j++) {
             Vector3 p0 = Pi.at(j - 1);
             Vector3 p1 = Pi.at(j + 0);
             area += (p0.x * p1.y - p0.y * p1.x);
-            add_point(p0, p1, segments, &bb, (j == 1 ? true : false), i);
+            add_point(p0, p1, segments, &bbox, (j == 1 ? true : false), i);
             if (j == Pi.size() - 1) {
-                add_point(p1, Pi.at(0), segments, &bb, (j == 1 ? true : false), i);
+                add_point(p1, Pi.at(0), segments, &bbox, (j == 1 ? true : false), i);
                 area += (p1.x * Pi.at(0).y - p1.y * Pi.at(0).x);
             }
         }
@@ -353,8 +332,8 @@ void ray_casting(std::vector<contour> &polygons) {
 
     /*Using the point in polygon algorithm to test the first segment of each contour: */
     for (int i = 0; i < polygons.size(); i++) {
-        std::vector<Vector3> Pi = polygons.at(i).P;
-        if (contains(Pi.at(0), bb, segments, i)) {
+        std::vector<Vector3> Pi = polygons.at(i).points;
+        if (contains(Pi.at(0), bbox, segments, i)) {
             /*Internal contour: */
             polygons.at(i).external = false;
         } else {
@@ -364,10 +343,10 @@ void ray_casting(std::vector<contour> &polygons) {
 
         /*Reversing contours: */
         if (polygons.at(i).external && polygons.at(i).clockwise) {
-            std::reverse(polygons.at(i).P.begin(), polygons.at(i).P.end());
+            std::reverse(polygons.at(i).points.begin(), polygons.at(i).points.end());
             polygons.at(i).clockwise = false;
         } else if (!polygons.at(i).external && !polygons.at(i).clockwise) {
-            std::reverse(polygons.at(i).P.begin(), polygons.at(i).P.end());
+            std::reverse(polygons.at(i).points.begin(), polygons.at(i).points.end());
             polygons.at(i).clockwise = true;
         }
     }
@@ -399,7 +378,7 @@ void TrivialSlicing(const TriangleMesh &mesh, std::vector<float> &planes) {
             }
         }
         if (!segs[p].empty()) {
-            std::vector<contour> contours;
+            std::vector<Contour> contours;
             TrivialLoopClosure(segs[p], contours);
             ray_casting(contours);
             segs[p].clear();

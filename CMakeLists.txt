@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 set( sources
         main.cpp
+        PolygonSlicer.cpp
         )
 
 set( headers
