@@ -6,235 +6,14 @@
 #include <sstream>
 #include <stdio.h>
 #include "Timer.h"
-
-
-using namespace std;
+#include "Vector3.h"
+#include "Triangle.h"
+#include "TriangleMesh.h"
+#include "LineSegment.h"
 
 
 double eps = 0.0001; // round all vertices in stl file to wthin this epsilon
 
-class v3 {
-
-public:
-
-    v3 (float _x=0, float _y=0, float _z=0) : x(_x), y(_y), z(_z) {}
-
-    float distTo (const v3 &pt) const {
-        return sqrt ( pow(fabs(x-pt.x), 2.0) + pow(fabs(y-pt.y), 2.0) + pow(fabs(z-pt.z), 2.0) );
-    }
-
-//    array<float,3> getCoords() {
-//        array<float,3> c = {{x, y, z}};
-//        return c;
-//    }
-
-    float dotproduct (const v3 &v) const {
-        return (x*v.x + y*v.y + z*v.z);
-    }
-
-//    void transform (const glm::mat4 &mat) {
-//        glm::vec4 v = glm::vec4(x, y, z, 1.0);
-//        glm::vec4 vt = mat*v;
-//        x = (vt.x); y = (vt.y); z = (vt.z);
-//    }
-
-    v3& operator-=(const v3 &pt) {
-        x = (x-pt.x);
-        y = (y-pt.y);
-        z = (z-pt.z);
-        return *this;
-    }
-
-    v3 operator-(const v3 &pt) {
-        return v3 ((x-pt.x), (y-pt.y), (z-pt.z));
-    }
-
-    v3 operator+(const v3 &pt) {
-        return v3 ((x+pt.x), (y+pt.y), (z+pt.z));
-    }
-
-    v3 operator/(float a) {
-        return v3 ((x/a), (y/a), (z/a));
-    }
-
-    v3 operator*(float a) {
-        return v3 ((x*a), (y*a), (z*a));
-    }
-
-    bool operator<(const v3 &pt) const {
-        return z < pt.z;
-    }
-
-    bool operator>(const v3 &pt) const {
-        return z > pt.z;
-    }
-
-    bool operator==(const v3 &pt) const {
-        return distTo(pt) < 0.005;
-    }
-
-    bool operator!=(const v3 &pt) const {
-        return distTo(pt) > 0.005;
-    }
-
-    float normalize() const {
-        return sqrt(x*x+y*y+z*z);
-    }
-
-    string getLabel() const {
-        stringstream ss;
-        ss << x << "|" << y << "|" << z;
-        return ss.str();
-    }
-
-    friend ostream& operator<<(ostream& os, const v3& v) {
-        os << "x: " << v.x << "; y: " << v.y << "; z: " << v.z;
-        return os;
-    }
-
-public:
-
-    float x;
-    float y;
-    float z;
-};
-
-class Triangle    {
-
-public:
-
-    Triangle(v3 n, v3 v0, v3 v1, v3 v2) : normal(n) {
-        v[0] = v0;
-        v[1] = v1;
-        v[2] = v2;
-        zMin = +99999999.9;
-        zMax = -99999999.9;
-        setZMin(v0.z); setZMin(v1.z); setZMin(v2.z);
-        setZMax(v0.z); setZMax(v1.z); setZMax(v2.z);
-    }
-
-    void setZMin (float z) {
-        if (z < zMin) {
-            zMin = z;
-        }
-    }
-
-    void setZMax (float z) {
-        if (z > zMax) {
-            zMax = z;
-        }
-    }
-
-    Triangle& operator-=(const v3 &pt) {
-        v[0] -= pt;
-        v[1] -= pt;
-        v[2] -= pt;
-        return *this;
-    }
-
-    bool operator<(const Triangle &t) {
-        return zMin < t.zMin;
-    }
-
-    friend ostream& operator<<(ostream& os, const Triangle& t) {
-        os << "V0: (" << t.v[0] << "); V1: (" << t.v[1] << "); V2: (" << t.v[2] << ")";
-        return os;
-    }
-
-    bool degenerate () {
-        if (v[0].distTo(v[1]) < 0.000001) { return true; }
-        if (v[1].distTo(v[2]) < 0.000001) { return true; }
-        if (v[2].distTo(v[0]) < 0.000001) { return true; }
-        return false;
-    }
-
-
-public:
-
-    v3 v[3];
-    v3 normal;
-    float zMin;
-    float zMax;
-};
-
-class TriangleMesh {
-
-public:
-
-    TriangleMesh() : bottomLeftVertex(999999,999999,999999), topRightVertex(-999999,-999999,-999999) { meshSize = 0;}
-
-    size_t size() const {
-        return meshSize;
-    }
-
-    void push_back(Triangle &t) {
-        meshSize++;
-        triangles.push_back(t);
-        for (size_t i = 0; i < 3; ++i) {
-            if (t.v[i].x < bottomLeftVertex.x) { bottomLeftVertex.x = t.v[i].x; }
-            if (t.v[i].y < bottomLeftVertex.y) { bottomLeftVertex.y = t.v[i].y; }
-            if (t.v[i].z < bottomLeftVertex.z) { bottomLeftVertex.z = t.v[i].z; }
-            if (t.v[i].x > topRightVertex.x) { topRightVertex.x = t.v[i].x; }
-            if (t.v[i].y > topRightVertex.y) { topRightVertex.y = t.v[i].y; }
-            if (t.v[i].z > topRightVertex.z) { topRightVertex.z = t.v[i].z; }
-        }
-    }
-
-    v3 meshAABBSize() const {
-        return v3 ( topRightVertex.x - bottomLeftVertex.x,
-                    topRightVertex.y - bottomLeftVertex.y,
-                    topRightVertex.z - bottomLeftVertex.z );
-    }
-
-    const vector<Triangle>& getTriangles() const { return triangles; }
-
-    v3 getBottomLeftVertex() const { return bottomLeftVertex; }
-
-    v3 getTopRightVertex() const { return topRightVertex; }
-
-public:
-
-    int meshSize;
-    v3 bottomLeftVertex;
-    v3 topRightVertex;
-    vector<Triangle> triangles;
-};
-
-class LineSegment {
-
-public:
-
-    LineSegment (v3 p0=v3(), v3 p1=v3(), int i=0) {
-        v[0] = p0;
-        v[1] = p1;
-        index = i;
-        vertical = false;
-        if ((v[1].x - v[0].x) != 0) {
-            a = (v[1].y - v[0].y)/(v[1].x - v[0].x);
-            b = (v[0].y - (a * v[0].x));
-        }
-        else {
-            vertical = true;
-        }
-    }
-
-    bool operator==(const LineSegment &ls) const {
-        return ((v[0] == ls.v[0]) && (v[1] == ls.v[1]));
-    }
-
-    friend ostream& operator<<(ostream& os, const LineSegment& ls) {
-        os << "V0: (" << ls.v[0] << "); V1: (" << ls.v[1] << ")";
-        return os;
-    }
-
-public:
-
-    v3 v[2];
-    double a;
-    double b;
-    bool vertical;
-    int index;
-};
 
 
 
@@ -244,8 +23,8 @@ float xround (float x, double eps, int mod, int rem) {
     return (float)z;
 }
 
-v3 v3_round (float x, float y, float z, double eps) {
-    v3 p;
+Vector3 v3_round (float x, float y, float z, double eps) {
+    Vector3 p;
     p.x = xround(x, eps, 2, 0);
     p.y = xround(y, eps, 2, 0);
     p.z = xround(z, eps, 2, 0);
@@ -260,7 +39,7 @@ Triangle make_triangle (
         double eps)
 {
 
-    return Triangle (v3(n0, n1, n2), v3_round(f0, f1, f2, eps), v3_round(f3, f4, f5, eps), v3_round(f6, f7, f8, eps));
+    return Triangle (Vector3(n0, n1, n2), v3_round(f0, f1, f2, eps), v3_round(f3, f4, f5, eps), v3_round(f6, f7, f8, eps));
 }
 
 int stlToMeshInMemory (const char *stlFile, TriangleMesh& mesh) {
@@ -294,13 +73,13 @@ int stlToMeshInMemory (const char *stlFile, TriangleMesh& mesh) {
     }
     fclose(f);
 
-    cout << "Number triangles: " << nFaces << endl;
-    cout << "Number degenerated triangles: " << ndegenerated << endl;
+    std::cout << "Number triangles: " << nFaces << std::endl;
+    std::cout << "Number degenerated triangles: " << ndegenerated << std::endl;
     return 0;
 }
 
-vector<float> compute_planes(TriangleMesh& mesh, double thickness) {
-    vector<float> planes;
+std::vector<float> compute_planes(TriangleMesh& mesh, double thickness) {
+    std::vector<float> planes;
 
     double model_zmax = mesh.getTopRightVertex().z;
     double model_zmin = mesh.getBottomLeftVertex().z;
@@ -310,7 +89,7 @@ vector<float> compute_planes(TriangleMesh& mesh, double thickness) {
 
     int no_planes = 1 + (int)((model_zmax + rounded_thickness - P0)/rounded_thickness); // includes padding
 
-    cout << "Model Z: [" << model_zmin << "  " << model_zmax << "] = " << model_zmax - model_zmin << " height" << endl;
+    std::cout << "Model Z: [" << model_zmin << "  " << model_zmax << "] = " << model_zmax - model_zmin << " height" << std::endl;
 
     for (size_t i = 0; i < no_planes; i++) {
         /* Building the vector with the slice z coordinates: */
@@ -334,7 +113,7 @@ typedef struct _list {
     Mesh_Triangle_Node_t *tail;
 } Mesh_Triangle_List_t;
 
-v3 R3_Mesh_Side_slice (v3 vi, v3 vj, float Z) {
+Vector3 R3_Mesh_Side_slice (Vector3 vi, Vector3 vj, float Z) {
     double dx = vj.x - vi.x;
     double dy = vj.y - vi.y;
     double dz = vj.z - vi.z;
@@ -342,31 +121,7 @@ v3 R3_Mesh_Side_slice (v3 vi, v3 vj, float Z) {
     double frac = (Z - vi.z)/dz;
     float xint = (float)(frac*dx + (double)vi.x);
     float yint = (float)(frac*dy + (double)vi.y);
-    return (v3){ .x = xint, .y = yint, .z = Z };
-}
-
-LineSegment R3_Mesh_Triangle_slice (Mesh_Triangle_Node_t *t, float Z) {
-//    assert((t->t.zMin < Z) && (t->t.zMax > Z));
-    int np = 0; /* Number of segment endpoints found */
-    LineSegment seg;
-    for (int i = 0; i < 3; i++) {
-        /* Get side {i} of triangle: */
-        int j = (i == 2 ? 0 : i+1);
-        v3 vi = (t->t.v[i]);
-        v3 vj = (t->t.v[j]);
-        /* Check for intersection of plane with {vi--vj}. */
-        /* Must consider segment closed at bottom and open at top in case {Z} goes through a vertex. */
-        float vzMin = (vi.z < vj.z ? vi.z : vj.z);
-        float vzMax = (vi.z > vj.z ? vi.z : vj.z);
-        if ((vzMin <= Z) && (vzMax > Z)) {
-            v3 p = R3_Mesh_Side_slice (vi, vj, Z);
-//            assert(np < 2);
-            seg.v[np] = p;
-            np++;
-        }
-    }
-//    assert(np == 2);
-    return seg;
+    return (Vector3){ .x = xint, .y = yint, .z = Z };
 }
 
 LineSegment R3_Mesh_Triangle_slice (Triangle t, float Z) {
@@ -376,14 +131,14 @@ LineSegment R3_Mesh_Triangle_slice (Triangle t, float Z) {
     for (int i = 0; i < 3; i++) {
         /* Get side {i} of triangle: */
         int j = (i == 2 ? 0 : i+1);
-        v3 vi = (t.v[i]);
-        v3 vj = (t.v[j]);
+        Vector3 vi = (t.v[i]);
+        Vector3 vj = (t.v[j]);
         /* Check for intersection of plane with {vi--vj}. */
         /* Must consider segment closed at bottom and open at top in case {Z} goes through a vertex. */
         float vzMin = (vi.z < vj.z ? vi.z : vj.z);
         float vzMax = (vi.z > vj.z ? vi.z : vj.z);
         if ((vzMin <= Z) && (vzMax > Z)) {
-            v3 p = R3_Mesh_Side_slice (vi, vj, Z);
+            Vector3 p = R3_Mesh_Side_slice (vi, vj, Z);
 //            assert(np < 2);
             seg.v[np] = p;
             np++;
@@ -393,10 +148,10 @@ LineSegment R3_Mesh_Triangle_slice (Triangle t, float Z) {
     return seg;
 }
 
-v3 TrivialClosure_find_A (vector<LineSegment>& segs, v3 u) {
-    for (vector<LineSegment>::iterator j = segs.begin(); j != segs.end(); ++j) {
-        v3 p0 = (*j).v[0];
-        v3 p1 = (*j).v[1];
+Vector3 TrivialClosure_find_A (std::vector<LineSegment>& segs, Vector3 u) {
+    for (std::vector<LineSegment>::iterator j = segs.begin(); j != segs.end(); ++j) {
+        Vector3 p0 = (*j).v[0];
+        Vector3 p1 = (*j).v[1];
         if ((p0.x == u.x) && (p0.y == u.y)) {
             segs.erase(j);
             return p1;
@@ -419,20 +174,20 @@ typedef struct _bounding_box {
 typedef struct _contour {
     bool external;
     bool clockwise;
-    vector<v3> P;
+    std::vector<Vector3> P;
 } contour;
 
-void TrivialLoopClosure (vector<LineSegment> segs, vector<contour>& contours) {
+void TrivialLoopClosure (std::vector<LineSegment> segs, std::vector<contour>& contours) {
 
     while (segs.size() > 0) {
 
         /* Get another contour: */
-        vector<v3> P;
+        std::vector<Vector3> P;
 
         /* Get the first segment: */
-        v3 last;
-        v3 current;
-        v3 prev;
+        Vector3 last;
+        Vector3 current;
+        Vector3 prev;
         {
             std::vector<LineSegment>::iterator i = segs.begin();
             last = (*i).v[0];
@@ -448,7 +203,7 @@ void TrivialLoopClosure (vector<LineSegment> segs, vector<contour>& contours) {
         bool open = false;
         do {
             /* Find and delete another segment with endpoint {current}, advance {prev,current} */
-            v3 next = TrivialClosure_find_A (segs, current);
+            Vector3 next = TrivialClosure_find_A (segs, current);
             //v3 next = TrivialClosure_find_B (segs, current, plane);
             if ((next.x == +INFINITY) || (next.y == +INFINITY)) {
                 /* Open contour?! */
@@ -468,15 +223,15 @@ void TrivialLoopClosure (vector<LineSegment> segs, vector<contour>& contours) {
     }
 }
 
-LineSegment create_ray (v3 point, bounding_box bb, int index) {
+LineSegment create_ray (Vector3 point, bounding_box bb, int index) {
     /* Create outside point: */
     double epsilon = (bb.xMax - bb.xMin) / 100.0;
-    v3 outside (bb.xMin - epsilon, bb.yMin);
+    Vector3 outside (bb.xMin - epsilon, bb.yMin);
     LineSegment v (outside, point, index);
     return v;
 }
 
-bool is_inside (LineSegment line, v3 point) {
+bool is_inside (LineSegment line, Vector3 point) {
     double maxX = (line.v[0].x > line.v[1].x) ? line.v[0].x : line.v[1].x;
     double minX = (line.v[0].x < line.v[1].x) ? line.v[0].x : line.v[1].x;
     double maxY = (line.v[0].y > line.v[1].y) ? line.v[0].y : line.v[1].y;
@@ -488,7 +243,7 @@ bool is_inside (LineSegment line, v3 point) {
 }
 
 bool ray_intersect (LineSegment ray, LineSegment side) {
-    v3 intersectPoint;
+    Vector3 intersectPoint;
     /* If both vectors aren't from the kind of x=1 lines then go into: */
     if (!ray.vertical && !side.vertical) {
         /* Check if both vectors are parallel. If they are parallel then no intersection point will exist: */
@@ -524,7 +279,7 @@ bounding_box create_bounding_box () {
     return bb;
 }
 
-void update_bounding_box (v3 point, bounding_box *bb) {
+void update_bounding_box (Vector3 point, bounding_box *bb) {
     /* Setting the bounding box: */
     if (point.x > bb->xMax) {
         bb->xMax = point.x;
@@ -540,14 +295,14 @@ void update_bounding_box (v3 point, bounding_box *bb) {
     }
 }
 
-bool insided_bounding_box (v3 point, bounding_box bb) {
+bool insided_bounding_box (Vector3 point, bounding_box bb) {
     if ( (point.x < bb.xMin) || (point.x > bb.xMax) || (point.y < bb.yMin) || (point.y > bb.yMax) ) {
         return false;
     }
     return true;
 }
 
-bool contains (v3 point, bounding_box bb, vector<LineSegment> sides, int index) {
+bool contains (Vector3 point, bounding_box bb, std::vector<LineSegment> sides, int index) {
     if (insided_bounding_box(point, bb)) {
         LineSegment ray = create_ray (point, bb, index);
         int intersection = 0;
@@ -563,7 +318,7 @@ bool contains (v3 point, bounding_box bb, vector<LineSegment> sides, int index) 
     }
     return false;
 }
-void add_point (v3 p1, v3 p2, vector<LineSegment> &t, bounding_box *bb, bool first, int index) {
+void add_point (Vector3 p1, Vector3 p2, std::vector<LineSegment> &t, bounding_box *bb, bool first, int index) {
     if (first) {
         update_bounding_box (p1, bb);
     }
@@ -572,19 +327,19 @@ void add_point (v3 p1, v3 p2, vector<LineSegment> &t, bounding_box *bb, bool fir
     t.push_back(line);
 }
 
-void ray_casting (vector<contour> &polygons) {
+void ray_casting (std::vector<contour> &polygons) {
 
-    vector<LineSegment> segments;
+    std::vector<LineSegment> segments;
 
     bounding_box bb = create_bounding_box ();
 
     /*Creating the line segments of each contour: */
     for (int i = 0; i < polygons.size(); i++) {
         double area = 0.0;
-        vector<v3> Pi = polygons.at(i).P;
+        std::vector<Vector3> Pi = polygons.at(i).P;
         for (int j = 1; j < Pi.size(); j++) {
-            v3 p0 = Pi.at(j-1);
-            v3 p1 = Pi.at(j+0);
+            Vector3 p0 = Pi.at(j-1);
+            Vector3 p1 = Pi.at(j+0);
             area += (p0.x * p1.y - p0.y * p1.x);
             add_point (p0, p1, segments, &bb, (j == 1 ? true : false), i);
             if (j == Pi.size()-1) {
@@ -603,7 +358,7 @@ void ray_casting (vector<contour> &polygons) {
 
     /*Using the point in polygon algorithm to test the first segment of each contour: */
     for (int i = 0; i < polygons.size(); i++) {
-        vector<v3> Pi = polygons.at(i).P;
+        std::vector<Vector3> Pi = polygons.at(i).P;
         if (contains (Pi.at(0), bb, segments, i)) {
             /*Internal contour: */
             polygons.at(i).external = false;
@@ -626,13 +381,13 @@ void ray_casting (vector<contour> &polygons) {
     segments.clear();
 }
 
-void TrivialSlicing (const TriangleMesh& mesh, vector<float>& planes) {
+void TrivialSlicing (const TriangleMesh& mesh, std::vector<float>& planes) {
 
     int numberPlanes = planes.size(); /* Number of planes. */
 
-    const vector<Triangle> &T = mesh.getTriangles();
+    const std::vector<Triangle> &T = mesh.getTriangles();
 
-    vector<LineSegment> segs[numberPlanes];
+    std::vector<LineSegment> segs[numberPlanes];
 
     int intersections = 0;
 
@@ -659,7 +414,7 @@ void TrivialSlicing (const TriangleMesh& mesh, vector<float>& planes) {
         }
 //        cout << planes[p] << " " << segs[p].size() << "  " << intersections_per_plane << endl;
         if (!segs[p].empty()) {
-            vector<contour> contours;
+            std::vector<contour> contours;
             TrivialLoopClosure (segs[p], contours);
             ray_casting (contours);
             segs[p].clear();
@@ -673,7 +428,7 @@ void TrivialSlicing (const TriangleMesh& mesh, vector<float>& planes) {
             }
         }
     }
-    cout << "Intersections: " << intersections << endl;
+    std::cout << "Intersections: " << intersections << std::endl;
 
 //    if (chaining) {
 //        /*Loop-Closure:*/
@@ -694,21 +449,21 @@ int main() {
     TriangleMesh mesh;
     double thickness{0.1};
 
-//    stlToMeshInMemory("../cube_10x10x10.stl", mesh);
-    stlToMeshInMemory("../pisa.stl", mesh);
+    stlToMeshInMemory("../cube_10x10x10.stl", mesh);
+//    stlToMeshInMemory("../pisa.stl", mesh);
 //    stlToMeshInMemory("../bblocky.stl", mesh);
-    vector<float> planes = compute_planes(mesh, thickness);
-    cout << "Planes: " << planes.size() << " [";
+    std::vector<float> planes = compute_planes(mesh, thickness);
+    std::cout << "Planes: " << planes.size() << " [";
     for (auto z: planes) {
-        cout << z << " ";
+        std::cout << z << " ";
     }
-    cout << endl;
+    std::cout << std::endl;
 
     Timer timer;
 
     timer.reset();
     TrivialSlicing(mesh, planes);
-    cout << "Slicing: " << timer.elapsed() << " seconds" << endl;
+    std::cout << "Slicing: " << timer.elapsed() << " seconds" << std::endl;
 
     return 0;
 }
