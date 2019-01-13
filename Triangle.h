@@ -2,6 +2,7 @@
 #ifndef POLYSLICER_TRIANGLE_H
 #define POLYSLICER_TRIANGLE_H
 
+#include "Vector3.h"
 
 class Triangle    {
 

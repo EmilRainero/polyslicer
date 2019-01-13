@@ -5,6 +5,8 @@
 #ifndef POLYSLICER_BOUNDINGBOX_H
 #define POLYSLICER_BOUNDINGBOX_H
 
+#include <limits>
+
 class BoundingBox {
 public:
     BoundingBox() {
