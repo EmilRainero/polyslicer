@@ -34,7 +34,7 @@ Triangle PolygonSlicer::makeRoundedTriangle(
                     roundVector3(f6, f7, f8, epsilon));
 }
 
-std::vector<float> PolygonSlicer::compute_planes(TriangleMesh &mesh, double thickness, double epsilon) {
+std::vector<float> PolygonSlicer::computePlanes(TriangleMesh &mesh, double thickness, double epsilon) {
     std::vector<float> planes;
 
     double model_zmax = mesh.getTopRightVertex().z;
@@ -343,7 +343,7 @@ std::vector<Layer *> PolygonSlicer::TrivialSlicing(const TriangleMesh &mesh, std
 }
 
 std::vector<Layer *> PolygonSlicer::sliceModel(TriangleMesh& mesh, double thickness, double epsilon) {
-    std::vector<float> planes = compute_planes(mesh, thickness, epsilon);
+    std::vector<float> planes = computePlanes(mesh, thickness, epsilon);
     auto result = TrivialSlicing(mesh, planes);
 
     return result;

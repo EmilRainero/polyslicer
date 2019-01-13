@@ -46,7 +46,7 @@ public:
         return os;
     }
 
-    bool degenerate () {
+    bool isDegenerate() {
         if (v[0].distTo(v[1]) < 0.000001) { return true; }
         if (v[1].distTo(v[2]) < 0.000001) { return true; }
         if (v[2].distTo(v[0]) < 0.000001) { return true; }

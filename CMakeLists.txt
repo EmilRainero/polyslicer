@@ -16,4 +16,20 @@ set( headers
         Timer.h
         )
 
-add_executable(polyslicer ${sources})
+
+#add_executable(polyslicer ${sources})
+
+set( executable "polyslicer" )
+add_executable( ${executable} "")
+
+set_target_properties(${outputLib} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS ON
+        )
+
+target_sources( ${executable}
+        PRIVATE
+        ${sources}
+        ${headers}
+        )

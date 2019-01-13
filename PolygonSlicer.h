@@ -24,7 +24,7 @@ private:
 
     Vector3 R3_Mesh_Side_slice(Vector3 vi, Vector3 vj, float Z);
 
-    std::vector<float> compute_planes(TriangleMesh &mesh, double thickness, double epsilon);
+    std::vector<float> computePlanes(TriangleMesh &mesh, double thickness, double epsilon);
 
     Triangle makeRoundedTriangle(
             float n0, float n1, float n2,

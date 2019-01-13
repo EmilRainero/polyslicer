@@ -16,11 +16,11 @@ public:
         return (float) z;
     }
 
-    Vector3 roundVector3(float x, float y, float z, double eps) {
+    Vector3 roundVector3(float x, float y, float z, double epsilon) {
         Vector3 p;
-        p.x = roundToNearestEpsilon(x, eps, 2, 0);
-        p.y = roundToNearestEpsilon(y, eps, 2, 0);
-        p.z = roundToNearestEpsilon(z, eps, 2, 0);
+        p.x = roundToNearestEpsilon(x, epsilon, 2, 0);
+        p.y = roundToNearestEpsilon(y, epsilon, 2, 0);
+        p.z = roundToNearestEpsilon(z, epsilon, 2, 0);
         return p;
     }
 
@@ -60,10 +60,10 @@ public:
                 err = fread((void *) &v[j], sizeof(float), 1, f);
             }
             err = fread((void *) &uint16, sizeof(unsigned short), 1, f); // spacer between successive faces
-            Triangle t = makeRoundedTriangle(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11],
+            Triangle triangle = makeRoundedTriangle(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11],
                                               eps);
-            if (!t.degenerate()) {
-                push_back(t);
+            if (!triangle.isDegenerate()) {
+                push_back(triangle);
             } else {
                 numberDegenerateTriangles++;
             }
@@ -78,16 +78,16 @@ public:
         return meshSize;
     }
 
-    void push_back(Triangle &t) {
+    void push_back(Triangle &triangle) {
         meshSize++;
-        triangles.push_back(t);
+        triangles.push_back(triangle);
         for (size_t i = 0; i < 3; ++i) {
-            if (t.v[i].x < bottomLeftVertex.x) { bottomLeftVertex.x = t.v[i].x; }
-            if (t.v[i].y < bottomLeftVertex.y) { bottomLeftVertex.y = t.v[i].y; }
-            if (t.v[i].z < bottomLeftVertex.z) { bottomLeftVertex.z = t.v[i].z; }
-            if (t.v[i].x > topRightVertex.x) { topRightVertex.x = t.v[i].x; }
-            if (t.v[i].y > topRightVertex.y) { topRightVertex.y = t.v[i].y; }
-            if (t.v[i].z > topRightVertex.z) { topRightVertex.z = t.v[i].z; }
+            if (triangle.v[i].x < bottomLeftVertex.x) { bottomLeftVertex.x = triangle.v[i].x; }
+            if (triangle.v[i].y < bottomLeftVertex.y) { bottomLeftVertex.y = triangle.v[i].y; }
+            if (triangle.v[i].z < bottomLeftVertex.z) { bottomLeftVertex.z = triangle.v[i].z; }
+            if (triangle.v[i].x > topRightVertex.x) { topRightVertex.x = triangle.v[i].x; }
+            if (triangle.v[i].y > topRightVertex.y) { topRightVertex.y = triangle.v[i].y; }
+            if (triangle.v[i].z > topRightVertex.z) { topRightVertex.z = triangle.v[i].z; }
         }
     }
 
