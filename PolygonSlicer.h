@@ -10,7 +10,7 @@
 
 class PolygonSlicer {
 public:
-    int sliceModel(TriangleMesh &mesh, double thickness, double epsilon = 0.0001);
+    void sliceModel(TriangleMesh &mesh, double thickness, double epsilon = 0.0001);
 
 private:
     void TrivialSlicing(const TriangleMesh &mesh, std::vector<float> &planes);

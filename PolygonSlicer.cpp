@@ -308,13 +308,14 @@ void PolygonSlicer::ray_casting(std::vector<Contour> &polygons) {
 
 void PolygonSlicer::TrivialSlicing(const TriangleMesh &mesh, std::vector<float> &planes) {
 
-    int numberPlanes = planes.size(); /* Number of planes. */
+    int numberPlanes = planes.size();
     const std::vector<Triangle> &triangles = mesh.getTriangles();
     std::vector<LineSegment> lineSegments[numberPlanes];
     std::vector<Contour> contours[numberPlanes];
 
     /* Enumerate the slicing planes: */
     for (int p = 0; p < numberPlanes; p++) {
+
         /* Enumerate all triangles of the mesh:*/
         for (auto it = triangles.begin(), itEnd = triangles.end(); it != itEnd; ++it) {
             Triangle t = *it; /*Current triangle.*/
@@ -347,9 +348,10 @@ void PolygonSlicer::TrivialSlicing(const TriangleMesh &mesh, std::vector<float> 
 //            }
         }
     }
+
 }
 
-int PolygonSlicer::sliceModel(TriangleMesh& mesh, double thickness, double epsilon) {
+void PolygonSlicer::sliceModel(TriangleMesh& mesh, double thickness, double epsilon) {
     std::vector<float> planes = compute_planes(mesh, thickness, epsilon);
 //    std::cout << "Planes: " << planes.size() << " [";
 //    for (auto z: planes) {
@@ -359,5 +361,4 @@ int PolygonSlicer::sliceModel(TriangleMesh& mesh, double thickness, double epsil
 
     TrivialSlicing(mesh, planes);
 
-    return 0;
 }
