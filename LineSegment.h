@@ -15,8 +15,7 @@ public:
         if ((v[1].x - v[0].x) != 0) {
             a = (v[1].y - v[0].y)/(v[1].x - v[0].x);
             b = (v[0].y - (a * v[0].x));
-        }
-        else {
+        } else {
             vertical = true;
         }
     }

@@ -29,12 +29,12 @@ public:
             float f0, float f1, float f2,
             float f3, float f4, float f5,
             float f6, float f7, float f8,
-            double eps) {
+            double epsilon) {
 
         return Triangle(Vector3(n0, n1, n2),
-                        roundVector3(f0, f1, f2, eps),
-                        roundVector3(f3, f4, f5, eps),
-                        roundVector3(f6, f7, f8, eps));
+                        roundVector3(f0, f1, f2, epsilon),
+                        roundVector3(f3, f4, f5, epsilon),
+                        roundVector3(f6, f7, f8, epsilon));
     }
 
     TriangleMesh() : bottomLeftVertex(999999,999999,999999), topRightVertex(-999999,-999999,-999999) { meshSize = 0;}
@@ -45,8 +45,7 @@ public:
 
         FILE *f = fopen(stlFile, "rb");
         if (!f) {
-//            return -1;
-            // throw exception
+            throw std::invalid_argument("File: " + std::string(stlFile) + "  - Does not exist!");
         }
         char header[80];
         int numberTriangles;

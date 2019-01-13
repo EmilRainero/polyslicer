@@ -49,7 +49,7 @@ private:
 
     bool contains(Vector3 point, BoundingBox bb, std::vector<LineSegment> sides, int index);
 
-    void add_point(Vector3 p1, Vector3 p2, std::vector<LineSegment> &t, BoundingBox *bb, bool first, int index);
+    void add_point(Vector3 p1, Vector3 p2, std::vector<LineSegment> &t, BoundingBox *bbox, bool first, int index);
 
     void ray_casting(std::vector<Contour> &polygons);
 

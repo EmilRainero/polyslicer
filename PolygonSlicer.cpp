@@ -246,11 +246,11 @@ bool PolygonSlicer::contains(Vector3 point, BoundingBox bb, std::vector<LineSegm
     return false;
 }
 
-void PolygonSlicer::add_point(Vector3 p1, Vector3 p2, std::vector<LineSegment> &t, BoundingBox *bb, bool first, int index) {
+void PolygonSlicer::add_point(Vector3 p1, Vector3 p2, std::vector<LineSegment> &t, BoundingBox *bbox, bool first, int index) {
     if (first) {
-        update_bounding_box(p1, bb);
+        update_bounding_box(p1, bbox);
     }
-    update_bounding_box(p2, bb);
+    update_bounding_box(p2, bbox);
     LineSegment line(p1, p2, index);
     t.push_back(line);
 }
@@ -313,41 +313,29 @@ std::vector<Layer *> PolygonSlicer::TrivialSlicing(const TriangleMesh &mesh, std
     std::vector<LineSegment> lineSegments[numberPlanes];
     std::vector<Layer *> layers;
 
-    /* Enumerate the slicing planes: */
     for (int p = 0; p < numberPlanes; p++) {
+        float z = planes[p];
+        layers.push_back(new Layer(z));
 
-        layers.push_back(new Layer(planes[p]));
-
-        /* Enumerate all triangles of the mesh:*/
         for (auto it = triangles.begin(), itEnd = triangles.end(); it != itEnd; ++it) {
             Triangle t = *it; /*Current triangle.*/
             /*Does the plane intersect the triangle?:*/
-            if ((t.zMin < planes[p]) && (t.zMax > planes[p])) {
+            if ((t.zMin < z) && (t.zMax > z)) {
                 /* Compute and save the intersection: */
-                LineSegment seg = R3_Mesh_Triangle_slice(t, planes[p]);
-                seg.v[0].x = round(seg.v[0].x * 100.0) / 100.0;
-                seg.v[0].y = round(seg.v[0].y * 100.0) / 100.0;
-                seg.v[1].x = round(seg.v[1].x * 100.0) / 100.0;
-                seg.v[1].y = round(seg.v[1].y * 100.0) / 100.0;
-                if (seg.v[0].distTo(seg.v[1]) > 0.0001) {
-                    lineSegments[p].push_back(seg);
+                LineSegment lineSegment = R3_Mesh_Triangle_slice(t, z);
+                lineSegment.v[0].x = round(lineSegment.v[0].x * 100.0) / 100.0;
+                lineSegment.v[0].y = round(lineSegment.v[0].y * 100.0) / 100.0;
+                lineSegment.v[1].x = round(lineSegment.v[1].x * 100.0) / 100.0;
+                lineSegment.v[1].y = round(lineSegment.v[1].y * 100.0) / 100.0;
+                if (lineSegment.v[0].distTo(lineSegment.v[1]) > 0.0001) {
+                    lineSegments[p].push_back(lineSegment);
                 }
             }
         }
         if (!lineSegments[p].empty()) {
-//            std::vector<Contour> contours;
-
             TrivialLoopClosure(lineSegments[p], layers[p]->contours);
             ray_casting(layers[p]->contours);
             lineSegments[p].clear();
-//            cout << planes[p] << " " << contours.size() << endl;
-//            for (auto contour: contours) {
-//                cout << "Clockwise: " << contour.clockwise << endl;
-//                for (auto p: contour.P) {
-//                    cout << p << " " << endl;
-//                }
-//                cout << endl;
-//            }
         }
     }
 
@@ -356,12 +344,6 @@ std::vector<Layer *> PolygonSlicer::TrivialSlicing(const TriangleMesh &mesh, std
 
 std::vector<Layer *> PolygonSlicer::sliceModel(TriangleMesh& mesh, double thickness, double epsilon) {
     std::vector<float> planes = compute_planes(mesh, thickness, epsilon);
-//    std::cout << "Planes: " << planes.size() << " [";
-//    for (auto z: planes) {
-//        std::cout << z << " ";
-//    }
-//    std::cout << std::endl;
-
     auto result = TrivialSlicing(mesh, planes);
 
     return result;
