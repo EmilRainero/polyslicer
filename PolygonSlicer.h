@@ -6,14 +6,15 @@
 #include "LineSegment.h"
 #include "Contour.h"
 #include "BoundingBox.h"
+#include "Layer.h"
 
 
 class PolygonSlicer {
 public:
-    void sliceModel(TriangleMesh &mesh, double thickness, double epsilon = 0.0001);
+    std::vector<Layer *> sliceModel(TriangleMesh &mesh, double thickness, double epsilon = 0.0001);
 
 private:
-    void TrivialSlicing(const TriangleMesh &mesh, std::vector<float> &planes);
+    std::vector<Layer *> TrivialSlicing(const TriangleMesh &mesh, std::vector<float> &planes);
 
     void TrivialLoopClosure(std::vector<LineSegment> lineSegments, std::vector<Contour> &contour);
 

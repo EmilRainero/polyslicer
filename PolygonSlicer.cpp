@@ -306,15 +306,17 @@ void PolygonSlicer::ray_casting(std::vector<Contour> &polygons) {
     segments.clear();
 }
 
-void PolygonSlicer::TrivialSlicing(const TriangleMesh &mesh, std::vector<float> &planes) {
+std::vector<Layer *> PolygonSlicer::TrivialSlicing(const TriangleMesh &mesh, std::vector<float> &planes) {
 
     int numberPlanes = planes.size();
     const std::vector<Triangle> &triangles = mesh.getTriangles();
     std::vector<LineSegment> lineSegments[numberPlanes];
-    std::vector<Contour> contours[numberPlanes];
+    std::vector<Layer *> layers;
 
     /* Enumerate the slicing planes: */
     for (int p = 0; p < numberPlanes; p++) {
+
+        layers.push_back(new Layer(planes[p]));
 
         /* Enumerate all triangles of the mesh:*/
         for (auto it = triangles.begin(), itEnd = triangles.end(); it != itEnd; ++it) {
@@ -335,8 +337,8 @@ void PolygonSlicer::TrivialSlicing(const TriangleMesh &mesh, std::vector<float> 
         if (!lineSegments[p].empty()) {
 //            std::vector<Contour> contours;
 
-            TrivialLoopClosure(lineSegments[p], contours[p]);
-            ray_casting(contours[p]);
+            TrivialLoopClosure(lineSegments[p], layers[p]->contours);
+            ray_casting(layers[p]->contours);
             lineSegments[p].clear();
 //            cout << planes[p] << " " << contours.size() << endl;
 //            for (auto contour: contours) {
@@ -349,9 +351,10 @@ void PolygonSlicer::TrivialSlicing(const TriangleMesh &mesh, std::vector<float> 
         }
     }
 
+    return layers;
 }
 
-void PolygonSlicer::sliceModel(TriangleMesh& mesh, double thickness, double epsilon) {
+std::vector<Layer *> PolygonSlicer::sliceModel(TriangleMesh& mesh, double thickness, double epsilon) {
     std::vector<float> planes = compute_planes(mesh, thickness, epsilon);
 //    std::cout << "Planes: " << planes.size() << " [";
 //    for (auto z: planes) {
@@ -359,6 +362,7 @@ void PolygonSlicer::sliceModel(TriangleMesh& mesh, double thickness, double epsi
 //    }
 //    std::cout << std::endl;
 
-    TrivialSlicing(mesh, planes);
+    auto result = TrivialSlicing(mesh, planes);
 
+    return result;
 }
