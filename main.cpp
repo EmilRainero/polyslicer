@@ -2,7 +2,9 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
-
+#include <queue>
+#include <thread>
+#include <mutex>
 
 #include "PolygonSlicer.h"
 #include "Timer.h"
@@ -10,7 +12,6 @@
 #include "EdgeTable.h"
 #include "LodePNG.h"
 #include "LodePNGImage.h"
-
 
 
 std::vector<Vector3> minimizeContour(Contour& contour) {
@@ -81,7 +82,7 @@ void rescaleLayer(Layer *layer, float tx, float ty, float scale) {
     }
 }
 
-void simplifyPoints(std::vector<P>& points) {
+void simplifyPoints(std::vector<Point2i>& points) {
 
 }
 
@@ -155,8 +156,67 @@ std::string ZeroPadNumber(int number, int digits) {
     return ss.str();
 }
 
+struct RasterizeArgs {
+    int layerNumber;
+    Layer* layer;
+    int arraySize;
+    Vector3 minVertex;
+    double scale;
+} ;
+
+std::mutex coutLock;
+
+void rasterizeLayer(int layerNumber, Layer* layer, int arraySize, Vector3& minVertex, double scale) {
+    std::string filename = "layer-" + ZeroPadNumber(layerNumber, 5) + ".png";
+
+    rescaleLayer(layer, minVertex.x, minVertex.y, scale);
+    auto image = rasterizeLayer(layer, arraySize, arraySize);
+    if (true) {
+        LodePNGImage pngImage(arraySize, arraySize, 0);
+        for (int y = 0; y < arraySize; y++) {
+            for (int x = 0; x < arraySize; x++) {
+                if (image.buffer[y * arraySize + x] > 0) {
+                    pngImage.setPixel(x, y, 255, 255, 255);
+                }
+            }
+        }
+
+        pngImage.write(filename.c_str());
+    }
+
+    coutLock.lock();
+    std::cout << filename << std::endl;
+    coutLock.unlock();
+}
+
+void runLayer(RasterizeArgs* args) {
+    rasterizeLayer(args->layerNumber, args->layer, args->arraySize, args->minVertex, args->scale);
+}
+
+std::mutex queueLock;
+std::queue<RasterizeArgs*> workItems;
+
+void workerFunction() {
+    while (1) {
+        queueLock.lock();
+        if (workItems.empty()) {
+            queueLock.unlock();
+            return;
+        }
+        auto workItem = workItems.front();
+        workItems.pop();
+        queueLock.unlock();
+//        coutLock.lock();
+//        std::cout << "Hi " <<  workItem->layerNumber << std::endl;
+//        coutLock.unlock();
+        runLayer(workItem);
+
+        delete workItem;
+    }
+}
+
 void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers) {
-    int arraySize{1024};
+    int arraySize{2048};
 
     auto minVertex = mesh.getBottomLeftVertex();
     auto maxVertex = mesh.getTopRightVertex();
@@ -171,55 +231,75 @@ void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers) {
 
     int layerNumber = 0;
 
-    double totalRasterizeTime{0.0};
-    double totalWriteTime{0.0};
-    for (auto layer: layers) {
-        Timer timer;
+    std::list<std::thread> threads;
 
-        std::string filename = "layer-" + ZeroPadNumber(layerNumber, 5) + ".png";
-        std::cout << filename;
 
-        rescaleLayer(layer, minVertex.x, minVertex.y, scale);
-        auto image = rasterizeLayer(layer, arraySize, arraySize);
-        double elapsed;
-        elapsed = timer.elapsed();
-        totalRasterizeTime += elapsed;
-        std::cout << " " << elapsed;
+    bool useThreads{true};
+    if (useThreads) {
         if (true) {
-            timer.reset();
-            LodePNGImage pngImage(arraySize, arraySize, 0);
-            for (int y = 0; y < arraySize; y++) {
-                for (int x = 0; x < arraySize; x++) {
-                    if (image.buffer[y * arraySize + x] > 0) {
-                        pngImage.setPixel(x, y, 255, 255, 255);
-                    }
-                }
+            int numberCores{(int) std::thread::hardware_concurrency()};
+//            numberCores = 1;
+
+            std::cout << "Max cores: " << std::thread::hardware_concurrency() << std::endl;
+            for (auto layer: layers) {
+                auto *stepArgs = new RasterizeArgs();
+                stepArgs->layerNumber = layerNumber;
+                stepArgs->layer = layer;
+                stepArgs->scale = scale;
+                stepArgs->minVertex = minVertex;
+                stepArgs->arraySize = arraySize;
+                workItems.push(stepArgs);
+                layerNumber++;
             }
+            for (int i = 0; i < numberCores; i++) {
+                threads.emplace_back(workerFunction);
+            }
+            for (auto &t : threads) {
+                t.join();
+            }
+            threads.clear();
 
-            pngImage.write(filename.c_str());
-            elapsed = timer.elapsed();
-            totalWriteTime += elapsed;
+        } else {
+            std::cout << "Max cores: " << std::thread::hardware_concurrency() << std::endl;
+            for (auto layer: layers) {
+//        rasterizeLayer(layerNumber, layer, arraySize, minVertex, scale);
+                auto *stepArgs = new RasterizeArgs();
+                stepArgs->layerNumber = layerNumber;
+                stepArgs->layer = layer;
+                stepArgs->scale = scale;
+                stepArgs->minVertex = minVertex;
+                stepArgs->arraySize = arraySize;
+                workItems.push(stepArgs);
 
-            std::cout << "  Write " << elapsed;
+                threads.emplace_back(runLayer, stepArgs);
+
+                layerNumber++;
+            }
+            for (auto &t : threads) {
+                t.join();
+            }
+            threads.clear();
+//            for (std::list<RasterizeArgs *>::iterator i = workItems.begin(); i != workItems.end(); i++) {
+//                delete *i;
+//            }
         }
-
-        std::cout << std::endl;
-
-//        image.print();
-        layerNumber++;
+    } else {
+        for (auto layer: layers) {
+            rasterizeLayer(layerNumber, layer, arraySize, minVertex, scale);
+            layerNumber++;
+        }
     }
 
-    std::cout << "Rasterize time: " << totalRasterizeTime << "  Write time: " << totalWriteTime << std::endl;
 }
 
 int main() {
     double epsilon{0.0001};
-    double layerHeight{1};
+    double layerHeight{.1};
     Timer timer;
 
 //    TriangleMesh mesh("../parts/cube_10x10x10.stl", epsilon);
-//    TriangleMesh mesh("../parts/bblocky.stl", epsilon);
-    TriangleMesh mesh("../parts/pisa.stl", epsilon);
+    TriangleMesh mesh("../parts/bblocky.stl", epsilon);
+//    TriangleMesh mesh("../parts/pisa.stl", epsilon);
 
     std::cout << "Read Time: " << timer.elapsed() << " seconds" << std::endl;
 
