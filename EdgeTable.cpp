@@ -158,18 +158,20 @@ void EdgeTable::scanFill(Polygon2i P, Image& image, const Color& value) {   // n
         if (!AEL.empty()) {    // if needed print the table
 //            std::cout << "SCANLINE " << scanLine << std::endl;
 //            writeListInfo(AEL);
-//            std::cout << "Scan line: " << scanLine << " " << AEL.size() << endl;
+//            std::cout << "Scan line: " << scanLine << " " << AEL.size() << std::endl;
 
 
 
 //            writeListInfo(AEL);
             updateAEL(scanLine, AEL);
 
+//            std::cout << "updated" << std::endl;
+
             fillScan(scanLine, AEL, image, value);
-//            std::cout << "  filled: " << AEL.size() << endl;
+//            std::cout << "  filled: " << AEL.size() << std::endl;
 
             resortAEL(AEL);
-//            std::cout << "  resorted: " << AEL.size() << endl;
+//            std::cout << "  resorted: " << AEL.size() << std::endl;
 
 //            std::cout << "Done" << std::endl;
         }

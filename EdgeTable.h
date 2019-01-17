@@ -11,7 +11,7 @@
 #include "Polygon.h"
 #include "Node.h"
 #include "Image.h"
-#include "Color.h"
+#include "rasterize/Color.h"
 
 
 class EdgeTable {

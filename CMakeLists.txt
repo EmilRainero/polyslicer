@@ -6,6 +6,13 @@ set(CMAKE_CXX_STANDARD 11)
 set( sources
         main.cpp
         PolygonSlicer.cpp
+        Image.cpp
+        EdgeTable.cpp
+        Point.cpp
+        Polygon.cpp
+        Node.cpp
+        LodePNGImage.cpp
+        LodePNG.cpp
         )
 
 set( headers

@@ -14,7 +14,28 @@ public:
     std::vector<Layer *> sliceModel(TriangleMesh &mesh, double thickness, double epsilon = 0.0001);
 
 private:
+    typedef struct node {
+        Triangle t;
+        struct node *next;
+        struct node *prev;
+    } Mesh_Triangle_Node_t;
+
+    typedef struct _list {
+        Mesh_Triangle_Node_t *head;
+        Mesh_Triangle_Node_t *tail;
+    } Mesh_Triangle_List_t;
+
+    Mesh_Triangle_List_t* Mesh_Triangle_List_create (void);
+
+    void Mesh_Triangle_List_insert (Triangle t, Mesh_Triangle_List_t *L);
+
+    void Mesh_Triangle_List_union (Mesh_Triangle_List_t *L1, Mesh_Triangle_List_t *L2);
+
+    Mesh_Triangle_Node_t* Mesh_Triangle_List_remove (Mesh_Triangle_List_t *L, Mesh_Triangle_Node_t *node);
+
     std::vector<Layer *> TrivialSlicing(const TriangleMesh &mesh, std::vector<float> &planes);
+
+    std::vector<Layer *> IncrementalSlicing(const TriangleMesh& mesh, std::vector<float> &planes, double delta);
 
     void TrivialLoopClosure(std::vector<LineSegment> lineSegments, std::vector<Contour> &contour);
 
@@ -24,7 +45,11 @@ private:
 
     Vector3 R3_Mesh_Side_slice(Vector3 vi, Vector3 vj, float Z);
 
+    LineSegment R3_Mesh_Triangle_slice (Mesh_Triangle_Node_t *t, float Z);
+
     std::vector<float> computePlanes(TriangleMesh &mesh, double thickness, double epsilon);
+
+    Mesh_Triangle_List_t** IncrementalSlicing_buildLists (const TriangleMesh& mesh, std::vector<float> P, double delta);
 
     Triangle makeRoundedTriangle(
             float n0, float n1, float n2,

@@ -5,11 +5,11 @@
 #include <cmath>
 #include <iomanip>
 
-#include "Point.h"
-#include "Polygon.h"
-#include "Node.h"
-#include "EdgeTable.h"
-#include "Image.h"
+#include "../Point.h"
+#include "../Polygon.h"
+#include "../Node.h"
+#include "../EdgeTable.h"
+#include "../Image.h"
 
 #include "JsonUtils.h"
 #include "Timer.h"

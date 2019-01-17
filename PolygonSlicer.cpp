@@ -58,16 +58,70 @@ std::vector<float> PolygonSlicer::computePlanes(TriangleMesh &mesh, double thick
     return planes;
 }
 
-typedef struct node {
-    Triangle t;
-    struct node *next;
-    struct node *prev;
-} Mesh_Triangle_Node_t;
 
-typedef struct _list {
-    Mesh_Triangle_Node_t *head;
-    Mesh_Triangle_Node_t *tail;
-} Mesh_Triangle_List_t;
+PolygonSlicer::Mesh_Triangle_List_t* PolygonSlicer::Mesh_Triangle_List_create (void) {
+    Mesh_Triangle_List_t *L = (Mesh_Triangle_List_t *)malloc(sizeof(Mesh_Triangle_List_t));
+    L->head = NULL;
+    L->tail = NULL;
+    return L;
+}
+
+void PolygonSlicer::Mesh_Triangle_List_insert (Triangle t, Mesh_Triangle_List_t *L) {
+    Mesh_Triangle_Node_t *node = (Mesh_Triangle_Node_t *)malloc(sizeof(Mesh_Triangle_Node_t));
+    node->t = t;
+    node->next = L->head;
+    node->prev = NULL;
+    if (L->head == NULL) {
+        /*New head*/
+        L->head = L->tail = node;
+    }
+    else {
+        L->head->prev = node;
+        L->head = node;
+    }
+}
+
+/*-----------------------------------------------------------------------*/
+void PolygonSlicer::Mesh_Triangle_List_union (Mesh_Triangle_List_t *L1, Mesh_Triangle_List_t *L2) {
+    if ( (L1->head != NULL) && (L2->head != NULL) ) {
+        L1->tail->next = L2->head;
+        L2->head->prev = L1->tail;
+        L1->tail = L2->tail;;
+    }
+    else if (L2->head != NULL) {
+        L1->head = L2->head;
+        L1->tail = L2->tail;
+    }
+}
+
+/*-----------------------------------------------------------------------*/
+PolygonSlicer::Mesh_Triangle_Node_t* PolygonSlicer::Mesh_Triangle_List_remove (Mesh_Triangle_List_t *L, Mesh_Triangle_Node_t *node) {
+    if ((node->prev == NULL) && (node->next == NULL)) {
+        free (node);
+        L->head = NULL;
+        L->tail = NULL;
+        return NULL;
+    }
+    else if (node->prev == NULL) {
+        node->next->prev = NULL;
+        L->head = node->next;
+        free (node);
+        return L->head;
+    }
+    else if (node->next == NULL) {
+        node->prev->next = NULL;
+        L->tail = node->prev;
+        free (node);
+        return NULL;
+    }
+    else {
+        Mesh_Triangle_Node_t *next = node->next;
+        node->next->prev = node->prev;
+        node->prev->next = next;
+        free (node);
+        return next;
+    }
+}
 
 Vector3 PolygonSlicer::R3_Mesh_Side_slice(Vector3 vi, Vector3 vj, float Z) {
     double dx = vj.x - vi.x;
@@ -77,7 +131,33 @@ Vector3 PolygonSlicer::R3_Mesh_Side_slice(Vector3 vi, Vector3 vj, float Z) {
     double frac = (Z - vi.z) / dz;
     float xint = (float) (frac * dx + (double) vi.x);
     float yint = (float) (frac * dy + (double) vi.y);
-    return (Vector3) {.x = xint, .y = yint, .z = Z};
+    Vector3 result(xint, yint, Z);
+    return result;
+}
+
+
+LineSegment PolygonSlicer::R3_Mesh_Triangle_slice (Mesh_Triangle_Node_t *t, float Z) {
+//    assert((t->t.zMin < Z) && (t->t.zMax > Z));
+    int np = 0; /* Number of segment endpoints found */
+    LineSegment seg;
+    for (int i = 0; i < 3; i++) {
+        /* Get side {i} of triangle: */
+        int j = (i == 2 ? 0 : i+1);
+        Vector3 vi = (t->t.v[i]);
+        Vector3 vj = (t->t.v[j]);
+        /* Check for intersection of plane with {vi--vj}. */
+        /* Must consider segment closed at bottom and open at top in case {Z} goes through a vertex. */
+        float vzMin = (vi.z < vj.z ? vi.z : vj.z);
+        float vzMax = (vi.z > vj.z ? vi.z : vj.z);
+        if ((vzMin <= Z) && (vzMax > Z)) {
+            Vector3 p = R3_Mesh_Side_slice (vi, vj, Z);
+//            assert(np < 2);
+            seg.v[np] = p;
+            np++;
+        }
+    }
+//    assert(np == 2);
+    return seg;
 }
 
 LineSegment PolygonSlicer::R3_Mesh_Triangle_slice(Triangle t, float Z) {
@@ -276,7 +356,7 @@ void PolygonSlicer::ray_casting(std::vector<Contour> &polygons) {
             }
         }
         area /= 2.0;
-        if (area < 0.0) {
+        if (area >= 0.0) {
             polygons.at(i).clockwise = true;
         } else {
             polygons.at(i).clockwise = false;
@@ -342,9 +422,117 @@ std::vector<Layer *> PolygonSlicer::TrivialSlicing(const TriangleMesh &mesh, std
     return layers;
 }
 
+/* Assumes that {P[0..k-1]} is a list of {k} strictly increasing {Z}
+  coordinates. Returns a vector of {k+1} lists {L[0..k]} such that {L[p]}
+  contains all triangles of the {mesh} that have {zMin} between {P[p-1]}
+  and {P[p]}, assuming that {P[-1] = -oo} and {P[k] = +oo}. If {delta > 0},
+  assumes that {P[p]-P[p-1] = delta} for {p} in {1..k-1}. If {srt} is true,
+  assumes that the triangles are already sorted by increasing {zMin}. */
+PolygonSlicer::Mesh_Triangle_List_t** PolygonSlicer::IncrementalSlicing_buildLists (const TriangleMesh& mesh, std::vector<float> P, double delta) {
+
+    int k = P.size(); /* Number of planes. */
+
+    Mesh_Triangle_List_t **L = (Mesh_Triangle_List_t **)malloc((k+1) * sizeof(Mesh_Triangle_List_t *));
+
+    for (size_t p = 0; p <= k; p++) { L[p] = Mesh_Triangle_List_create(); }
+
+    const std::vector<Triangle> &T = mesh.triangles;
+
+    int n = T.size(); /* Number of triangles. */
+
+    /* Uniform slicing - compute list index: */
+    for (auto it = T.begin(), itEnd = T.end(); it != itEnd; ++it) {
+        Triangle t = *it;
+        int p;
+        if (t.zMin < P[0]) {
+            p = 0;
+        }
+        else if (t.zMin > P[k-1]) {
+            p = k;
+        }
+        else {
+            p = floor((t.zMin - P[0])/delta) + 1;
+        }
+        Mesh_Triangle_List_insert (t, L[p]);
+    }
+
+    return L;
+}
+
+std::vector<Layer *> PolygonSlicer::IncrementalSlicing(const TriangleMesh& mesh, std::vector<float> &planes, double delta) {
+
+    /*Slicing*/
+    clock_t slice_begin = clock();
+
+    int k = planes.size();
+
+    std::vector <LineSegment> segs[k];
+
+    /* Classify triangles by the plane gaps that contain their {zMin}: */
+    Mesh_Triangle_List_t **L = IncrementalSlicing_buildLists(mesh, planes, delta);
+    /* Now perform a plane sweep from bottom to top: */
+
+    Mesh_Triangle_List_t *A = Mesh_Triangle_List_create(); /* Active triangle list. */
+    for (int p = 0; p < k; p++) {
+        /* Add triangles that start between {P[p-1]} and {P[p]}: */
+        Mesh_Triangle_List_union(A, L[p]);
+        /* Scan the active triangles: */
+        Mesh_Triangle_Node_t *aux = A->head;
+        while (aux != NULL) {
+            Mesh_Triangle_Node_t *next = aux->next;
+            if (aux->t.zMax < planes[p]) {
+                /* Triangle is exhausted: */
+                Mesh_Triangle_List_remove(A, aux);
+            } else {
+                /* Compute intersection: */
+                if ((aux->t.zMin < planes[p]) && (aux->t.zMax > planes[p])) {
+                    LineSegment seg = R3_Mesh_Triangle_slice(aux, planes[p]);
+                    segs[p].push_back(seg);
+//                    intersections++;
+                }
+            }
+            aux = next;
+        }
+    }
+    free(L);
+    clock_t slice_end = clock();
+    double slicing_time = double(slice_end - slice_begin) / CLOCKS_PER_SEC;
+    std::cout << "Incremental " << slicing_time << std::endl;
+
+    /*End-Slicing*/
+
+//    if (chaining) {
+//        /*Contour construction:*/
+//        for (size_t p = 0; p < k; p++) {
+//            if (!segs[p].empty()) {
+//                ContourConstruction(segs[p], polygons, p);
+//                if (orienting) {
+//                    ray_casting(polygons[p]);
+//                }
+//                segs[p].clear();
+//            }
+//        }
+//        /*End construction.*/
+//    } else {
+//        export_svg_no_chaining("segments.svg", segs, k, mesh->meshAABBSize());
+//    }
+    std::vector<Layer *> result;
+
+    return result;
+}
+
+
 std::vector<Layer *> PolygonSlicer::sliceModel(TriangleMesh& mesh, double thickness, double epsilon) {
     std::vector<float> planes = computePlanes(mesh, thickness, epsilon);
-    auto result = TrivialSlicing(mesh, planes);
 
+    Timer timer;
+    std::vector<Layer *> result;
+
+    result = TrivialSlicing(mesh, planes);
+    std::cout << "Trivial Time: " << timer.elapsed() << " seconds" << std::endl;
+
+//    timer.reset();
+//    result = IncrementalSlicing(mesh, planes, thickness);
+//    std::cout << "Incremental Time: " << timer.elapsed() << " seconds" << std::endl;
     return result;
 }

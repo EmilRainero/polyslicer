@@ -11,7 +11,7 @@
 #include <cmath>
 
 #include "Point.h"
-#include "JsonUtils.h"
+//#include "rasterize/JsonUtils.h"
 
 
 template <class P>
@@ -76,7 +76,7 @@ public:
 
     static PolygonArray<P, PT> readJSON(std::string filename);
 
-    P CreatePolygonFromJSON(Json::Value& points);
+//    P CreatePolygonFromJSON(Json::Value& points);
 
     void writeBinary(std::string filename);
 
@@ -108,45 +108,45 @@ void PolygonArray<P, PT>::print() {
     }
 }
 
-template <class P, class PT>
-PolygonArray<P, PT> PolygonArray<P, PT>::readJSON(std::string filename) {
-    Json::Value polygonsJSON = JsonUtils::readFromFile(filename);
-
-    PolygonArray<P, PT> polygonArray;
-
-    for (int i = 0; i < polygonsJSON.size(); i++) {
-        Json::Value polygonJSON = polygonsJSON[i];
-        Json::Value pointsJSON = polygonJSON["Points"];
-        bool interior = polygonJSON["Interior"].asBool();
-
-        Polygon<PT> polygon;
-        PT p;
-        PT lastp;
-
-        for (int j = 0; j < pointsJSON.size(); j++) {
-            Json::Value point1 = pointsJSON[j];
-            p.x = (point1[0].asDouble());
-            p.y = (point1[1].asDouble());
-            if (j > 0 && !(lastp.x == p.x && lastp.y == p.y)) {
-                polygon.pt.push_back(p);
-            }
-            lastp = p;
-        }
-        // remove horizontal or vertical redundant points
-        for (int j = polygon.pt.size() - 2; j > 0; j--) {
-            if (
-                    (polygon.pt[j - 1].x == polygon.pt[j].x && polygon.pt[j].x == polygon.pt[j + 1].x) ||
-                    (polygon.pt[j - 1].y == polygon.pt[j].y && polygon.pt[j].y == polygon.pt[j + 1].y)
-                    )
-                polygon.pt.erase(polygon.pt.begin() + j);
-        }
-
-        polygon.interior = interior;
-        polygonArray.polygons.push_back(polygon);
-    }
-
-    return polygonArray;
-}
+//template <class P, class PT>
+//PolygonArray<P, PT> PolygonArray<P, PT>::readJSON(std::string filename) {
+//    Json::Value polygonsJSON = JsonUtils::readFromFile(filename);
+//
+//    PolygonArray<P, PT> polygonArray;
+//
+//    for (int i = 0; i < polygonsJSON.size(); i++) {
+//        Json::Value polygonJSON = polygonsJSON[i];
+//        Json::Value pointsJSON = polygonJSON["Points"];
+//        bool interior = polygonJSON["Interior"].asBool();
+//
+//        Polygon<PT> polygon;
+//        PT p;
+//        PT lastp;
+//
+//        for (int j = 0; j < pointsJSON.size(); j++) {
+//            Json::Value point1 = pointsJSON[j];
+//            p.x = (point1[0].asDouble());
+//            p.y = (point1[1].asDouble());
+//            if (j > 0 && !(lastp.x == p.x && lastp.y == p.y)) {
+//                polygon.pt.push_back(p);
+//            }
+//            lastp = p;
+//        }
+//        // remove horizontal or vertical redundant points
+//        for (int j = polygon.pt.size() - 2; j > 0; j--) {
+//            if (
+//                    (polygon.pt[j - 1].x == polygon.pt[j].x && polygon.pt[j].x == polygon.pt[j + 1].x) ||
+//                    (polygon.pt[j - 1].y == polygon.pt[j].y && polygon.pt[j].y == polygon.pt[j + 1].y)
+//                    )
+//                polygon.pt.erase(polygon.pt.begin() + j);
+//        }
+//
+//        polygon.interior = interior;
+//        polygonArray.polygons.push_back(polygon);
+//    }
+//
+//    return polygonArray;
+//}
 
 template <class P, class PT>
 void PolygonArray<P, PT>::writeBinary(std::string filename) {

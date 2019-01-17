@@ -33,6 +33,24 @@ public:
         return ss.str();
     }
 
+    bool isColinear(const Vector3& prev, const Vector3& next) {
+        // only check x and y and horizontal and vertical lines
+        if ((prev.x == x && x == next.x)) {
+            if ((prev.y < y && y < next.y) ||
+                (prev.y > y && y > next.y)) {
+                return true;
+            }
+        }
+
+        if ((prev.y == y && y == next.y)) {
+            if ((prev.x < x && x < next.x) ||
+                (prev.x > x && x > next.x)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     friend std::ostream &operator<<(std::ostream &os, const Vector3 &v) {
         os << "x: " << v.x << "; y: " << v.y << "; z: " << v.z;
         return os;

@@ -1,67 +1,207 @@
 #include <cmath>
+#include <iomanip>
+#include <sstream>
+#include <string>
+
+
 #include "PolygonSlicer.h"
 #include "Timer.h"
+#include "Image.h"
+#include "EdgeTable.h"
+#include "LodePNG.h"
+#include "LodePNGImage.h"
 
 
+
+std::vector<Vector3> minimizeContour(Contour& contour) {
+
+    std::vector<Vector3>& points = contour.points;
+
+    int size = points.size() - 1; // ignore the extra point at end
+
+    std::vector<Vector3>newPoints;
+    for (int i = 0; i< size; i++) {
+        if (i > 0 && points[i].x == points[i-1].x && points[i].y == points[i-1].y) {
+            continue;
+        }
+        int previousIndex = (i+size-1) % size;
+        int nextIndex = (i+1) % size;
+
+//        std::cout << "trying "
+//                << points[previousIndex].x << "," << points[previousIndex].y << "   "
+//                << points[i].x << "," << points[i].y << "   "
+//                << points[nextIndex].x << "," << points[nextIndex].y << " "
+//                << points[i].isColinear(points[previousIndex], points[nextIndex])
+//                     << std::endl;
+        if (!points[i].isColinear(points[previousIndex], points[nextIndex])) {
+            newPoints.push_back(points[i]);
+//            std::cout << points[i].x << "," << points[i].y << std::endl;
+        }
+    }
+    newPoints.push_back(newPoints[0]);
+    std::cout << "Before " << size+1 << "  After " << newPoints.size() << std::endl;
+
+    return newPoints;
+}
+
+void print(Contour& contour) {
+    std::cout << "\tContour - external: " << contour.external << " - clockwise: " << contour.clockwise
+              << std::endl;
+
+//    for (auto point: contour.points) {
+//        std::cout << "\t\t" << point << std::endl;
+//    }
+
+    auto data = minimizeContour(contour);
+//    for (auto point: data) {
+//        std::cout << "\t\t" << point << std::endl;
+//    }
+}
+
+void print(Layer* layer) {
+    for (auto contour: layer->contours) {
+        print(contour);
+    }
+}
 void print(std::vector<Layer *> layers) {
     for (auto layer: layers) {
         std::cout << "Layer: " << layer->z << std::endl;
 
-        for (auto contour: layer->contours) {
-            std::cout << "\tContour - external: " << contour.external << " - clockwise: " << contour.clockwise
-                      << std::endl;
+        print(layer);
+    }
+}
 
-            for (auto point: contour.points) {
-                std::cout << "\t\t" << point << std::endl;
+void rescaleLayer(Layer *layer, float tx, float ty, float scale) {
+    for (Contour &contour: layer->contours) {
+        for (Vector3 &point: contour.points) {
+            point.x = (point.x - tx) * scale + 1;
+            point.y = (point.y - ty) * scale + 1;
+        }
+    }
+}
+
+Image rasterizeLayer(Layer *layer, int xSize, int ySize) {
+    Image image(xSize, ySize);
+
+    Color backgroundColor(0);
+    Color foregroundColor(255);
+
+//    std::cout << "Rasterize " << layer->z << std::endl;
+
+    for (int i = 0; i < 2; i++) {
+
+        for (Contour &contour: layer->contours) {
+
+            if (
+                    (i == 0 && !contour.external) ||
+                    (i == 1 && contour.external)) {
+                continue;
             }
+            Polygon2i polygon;
+
+            for (Vector3 &point: contour.points) {
+                Point2i pt(point.x + 1, point.y + 1);
+                polygon.pt.push_back(pt);
+            }
+            polygon.interior = !contour.external;
+
+            //        typedef struct {
+            //            int x, y;
+            //        } Point;
+            //        int data[][2] = {
+            //                {1,1},
+            //                {1,11},
+            //                {11,11},
+            //                {11,1},
+            //                {1,1},
+            //        };
+            //        int n = sizeof(data) / sizeof(int *);
+            //        polygon.pt.clear();
+            //        for (int i = 0; i < n; i++) {
+            //            Point2i p(data[i][0], data[i][1]);
+            //            polygon.pt.push_back((p));
+            //        }
+
+
+//            std::cout << "fill " << polygon.interior << std::endl;
+            EdgeTable::scanFill(polygon, image, polygon.interior ? backgroundColor : foregroundColor);
         }
     }
+
+    return image;
 }
 
-void rescaleLayer(Layer* layer, float tx, float ty, float scale) {
-    for (Contour& contour: layer->contours) {
-        for (Vector3& point: contour.points) {
-            point.x = (point.x - tx) * scale;
-            point.y = (point.y - ty) * scale;
-        }
-    }
+std::string ZeroPadNumber(int number, int digits) {
+    std::ostringstream ss;
+    ss << std::setw(digits) << std::setfill('0') << number;
+    return ss.str();
 }
 
-void scaleLayers(TriangleMesh& mesh, std::vector<Layer *> layers) {
+void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers) {
+    int arraySize{512};
+
     auto minVertex = mesh.getBottomLeftVertex();
     auto maxVertex = mesh.getTopRightVertex();
 
     float xSize = maxVertex.x - minVertex.x;
     float ySize = maxVertex.y - minVertex.y;
-    float maxScale = std::max(xSize, ySize);
+    float maxScale = std::max(xSize + 1, ySize + 1);
 
     std::cout << xSize << " " << ySize << " " << maxScale << std::endl;
 
-    float arraySize{1024};
     float scale = (arraySize - 1) / maxScale;
+
+    int layerNumber = 0;
     for (auto layer: layers) {
+        Timer timer;
+
+        std::string filename = "layer-" + ZeroPadNumber(layerNumber, 5) + ".png";
+        std::cout << filename;
+
         rescaleLayer(layer, minVertex.x, minVertex.y, scale);
+        auto image = rasterizeLayer(layer, arraySize, arraySize);
+        std::cout << " " << timer.elapsed();
+        if (true) {
+            timer.reset();
+            LodePNGImage pngImage(arraySize, arraySize, 0);
+            for (int y = 0; y < arraySize; y++) {
+                for (int x = 0; x < arraySize; x++) {
+                    if (image.buffer[y * arraySize + x] > 0) {
+                        pngImage.setPixel(x, y, 255, 255, 255);
+                    }
+                }
+            }
+
+            pngImage.write(filename.c_str());
+        }
+
+        std::cout << std::endl;
+
+//        image.print();
+        layerNumber++;
     }
 }
 
 int main() {
     double epsilon{0.0001};
-    double layerHeight{0.1};
+    double layerHeight{.1};
 
-    TriangleMesh mesh("../cube_10x10x10.stl", epsilon);
+//    TriangleMesh mesh("../cube_10x10x10.stl", epsilon);
 //    TriangleMesh mesh("../bblocky.stl", epsilon);
-//    TriangleMesh mesh("../pisa.stl", epsilon);
+    TriangleMesh mesh("../pisa.stl", epsilon);
 
     PolygonSlicer slicer;
 
     Timer timer;
     auto layers = slicer.sliceModel(mesh, layerHeight);
-    std::cout << "Time: " << timer.elapsed() << " seconds" << std::endl;
-    std::cout << "Slices: " << layers.size() << std::endl;
+//    std::cout << "Time: " << timer.elapsed() << " seconds" << std::endl;
+//    std::cout << "Slices: " << layers.size() << std::endl;
 
-    scaleLayers(mesh, layers);
+    //rasterizeLayers(mesh, layers);
 
-    if (true) {
-        print(layers);
-    }
+//    minimizeContour(layers[layers.size()-1]->contours[0]);
+
+//    if (true) {
+//        print(layers);
+//    }
 }
