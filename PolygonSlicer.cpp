@@ -45,8 +45,8 @@ std::vector<float> PolygonSlicer::computePlanes(TriangleMesh &mesh, double thick
 
     int no_planes = 1 + (int) ((model_zmax + rounded_thickness - P0) / rounded_thickness);
 
-    std::cout << "Model Z: [" << model_zmin << "  " << model_zmax << "] = " << model_zmax - model_zmin << " height"
-              << std::endl;
+//    std::cout << "Model Z: [" << model_zmin << "  " << model_zmax << "] = " << model_zmax - model_zmin << " height"
+//              << std::endl;
 
     for (size_t i = 0; i < no_planes; i++) {
         float Pi = (float) (P0 + i * rounded_thickness);
@@ -529,7 +529,7 @@ std::vector<Layer *> PolygonSlicer::sliceModel(TriangleMesh& mesh, double thickn
     std::vector<Layer *> result;
 
     result = TrivialSlicing(mesh, planes);
-    std::cout << "Trivial Time: " << timer.elapsed() << " seconds" << std::endl;
+//    std::cout << "Trivial Time: " << timer.elapsed() << " seconds" << std::endl;
 
 //    timer.reset();
 //    result = IncrementalSlicing(mesh, planes, thickness);

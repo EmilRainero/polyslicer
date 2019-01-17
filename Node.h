@@ -8,7 +8,7 @@
 
 class Node {
 public:
-    Node() : yUpper(-1), xIntersect(0.0), dxPerScan(0.0) {};
+    Node() : yUpper(-1), xIntersect(-1.0), dxPerScan(0.0) {};
     int yUpper;
     float xIntersect, dxPerScan;
 };

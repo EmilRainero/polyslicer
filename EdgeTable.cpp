@@ -50,6 +50,7 @@ void EdgeTable::fillScan(int y, std::list <Node> L, Image& image, const Color& v
     // want to pull off pairs of x values from adjacent
     // nodes in the list - the y value = scan line
     std::list<Node>::iterator iter1 = L.begin(), iter2;
+
     int x1, x2;
     while (iter1 != L.end()) {
         iter2 = iter1;

@@ -63,6 +63,7 @@ void print(Layer* layer) {
         print(contour);
     }
 }
+
 void print(std::vector<Layer *> layers) {
     for (auto layer: layers) {
         std::cout << "Layer: " << layer->z << std::endl;
@@ -74,10 +75,14 @@ void print(std::vector<Layer *> layers) {
 void rescaleLayer(Layer *layer, float tx, float ty, float scale) {
     for (Contour &contour: layer->contours) {
         for (Vector3 &point: contour.points) {
-            point.x = (point.x - tx) * scale + 1;
-            point.y = (point.y - ty) * scale + 1;
+            point.x = (point.x - tx) * scale;
+            point.y = (point.y - ty) * scale;
         }
     }
+}
+
+void simplifyPoints(std::vector<P>& points) {
+
 }
 
 Image rasterizeLayer(Layer *layer, int xSize, int ySize) {
@@ -100,28 +105,41 @@ Image rasterizeLayer(Layer *layer, int xSize, int ySize) {
             Polygon2i polygon;
 
             for (Vector3 &point: contour.points) {
-                Point2i pt(point.x + 1, point.y + 1);
+                Point2i pt(point.x, point.y);
                 polygon.pt.push_back(pt);
             }
+            simplifyPoints(polygon.pt);
+
             polygon.interior = !contour.external;
 
-            //        typedef struct {
-            //            int x, y;
-            //        } Point;
-            //        int data[][2] = {
-            //                {1,1},
-            //                {1,11},
-            //                {11,11},
-            //                {11,1},
-            //                {1,1},
-            //        };
-            //        int n = sizeof(data) / sizeof(int *);
-            //        polygon.pt.clear();
-            //        for (int i = 0; i < n; i++) {
-            //            Point2i p(data[i][0], data[i][1]);
-            //            polygon.pt.push_back((p));
-            //        }
+//            typedef struct {
+//                int x, y;
+//            } Point;
+//            int data[][2] = {
+//                    {0,1},
+//                    {1,11},
+//                    {11,11},
+//                    {11,1},
+//                    {0,1},
+//            };
+//            int n = sizeof(data) / sizeof(int *);
+//            polygon.pt.clear();
+//            for (int i = 0; i < n; i++) {
+//                Point2i p(data[i][0], data[i][1]);
+//                polygon.pt.push_back((p));
+//            }
 
+            /*
+             *   when 1
+             *   contents: -1 0 0
+             *   contents: 11 1 0
+             *   contents: 11 11 0
+             *
+             *   when 0
+             *   contents: 11 0 0.1
+             *   contents: -1 0 0
+             *   contents: 11 11 0
+             */
 
 //            std::cout << "fill " << polygon.interior << std::endl;
             EdgeTable::scanFill(polygon, image, polygon.interior ? backgroundColor : foregroundColor);
@@ -138,20 +156,23 @@ std::string ZeroPadNumber(int number, int digits) {
 }
 
 void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers) {
-    int arraySize{512};
+    int arraySize{1024};
 
     auto minVertex = mesh.getBottomLeftVertex();
     auto maxVertex = mesh.getTopRightVertex();
 
     float xSize = maxVertex.x - minVertex.x;
     float ySize = maxVertex.y - minVertex.y;
-    float maxScale = std::max(xSize + 1, ySize + 1);
+    float maxScale = std::max(xSize, ySize);
 
-    std::cout << xSize << " " << ySize << " " << maxScale << std::endl;
+//    std::cout << xSize << " " << ySize << " " << maxScale << std::endl;
 
     float scale = (arraySize - 1) / maxScale;
 
     int layerNumber = 0;
+
+    double totalRasterizeTime{0.0};
+    double totalWriteTime{0.0};
     for (auto layer: layers) {
         Timer timer;
 
@@ -160,7 +181,10 @@ void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers) {
 
         rescaleLayer(layer, minVertex.x, minVertex.y, scale);
         auto image = rasterizeLayer(layer, arraySize, arraySize);
-        std::cout << " " << timer.elapsed();
+        double elapsed;
+        elapsed = timer.elapsed();
+        totalRasterizeTime += elapsed;
+        std::cout << " " << elapsed;
         if (true) {
             timer.reset();
             LodePNGImage pngImage(arraySize, arraySize, 0);
@@ -173,6 +197,10 @@ void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers) {
             }
 
             pngImage.write(filename.c_str());
+            elapsed = timer.elapsed();
+            totalWriteTime += elapsed;
+
+            std::cout << "  Write " << elapsed;
         }
 
         std::cout << std::endl;
@@ -180,24 +208,30 @@ void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers) {
 //        image.print();
         layerNumber++;
     }
+
+    std::cout << "Rasterize time: " << totalRasterizeTime << "  Write time: " << totalWriteTime << std::endl;
 }
 
 int main() {
     double epsilon{0.0001};
-    double layerHeight{.1};
+    double layerHeight{1};
+    Timer timer;
 
-//    TriangleMesh mesh("../cube_10x10x10.stl", epsilon);
-//    TriangleMesh mesh("../bblocky.stl", epsilon);
-    TriangleMesh mesh("../pisa.stl", epsilon);
+//    TriangleMesh mesh("../parts/cube_10x10x10.stl", epsilon);
+//    TriangleMesh mesh("../parts/bblocky.stl", epsilon);
+    TriangleMesh mesh("../parts/pisa.stl", epsilon);
+
+    std::cout << "Read Time: " << timer.elapsed() << " seconds" << std::endl;
 
     PolygonSlicer slicer;
 
-    Timer timer;
+    timer.reset();
     auto layers = slicer.sliceModel(mesh, layerHeight);
-//    std::cout << "Time: " << timer.elapsed() << " seconds" << std::endl;
-//    std::cout << "Slices: " << layers.size() << std::endl;
+    std::cout << "Slice Time: " << timer.elapsed() << " seconds" << std::endl;
 
-    //rasterizeLayers(mesh, layers);
+    timer.reset();
+    rasterizeLayers(mesh, layers);
+    std::cout << "Rasterize Time: " << timer.elapsed() << " seconds" << std::endl;
 
 //    minimizeContour(layers[layers.size()-1]->contours[0]);
 
