@@ -98,9 +98,8 @@ Image rasterizeLayer(Layer *layer, int xSize, int ySize) {
 
         for (Contour &contour: layer->contours) {
 
-            if (
-                    (i == 0 && !contour.external) ||
-                    (i == 1 && contour.external)) {
+            if ((i == 0 && !contour.external) ||
+                (i == 1 && contour.external)) {
                 continue;
             }
             Polygon2i polygon;
@@ -108,6 +107,7 @@ Image rasterizeLayer(Layer *layer, int xSize, int ySize) {
             for (Vector3 &point: contour.points) {
                 Point2i pt(point.x, point.y);
                 polygon.pt.push_back(pt);
+
             }
             simplifyPoints(polygon.pt);
 
@@ -184,9 +184,11 @@ void rasterizeLayer(int layerNumber, Layer* layer, int arraySize, Vector3& minVe
         pngImage.write(filename.c_str());
     }
 
-    coutLock.lock();
-    std::cout << filename << std::endl;
-    coutLock.unlock();
+//    coutLock.lock();
+    std::cout << ZeroPadNumber(layerNumber, 5) << " " << std::flush;
+    if (layerNumber > 0 && layerNumber % 20 == 0)
+        std::cout << std::endl;
+//    coutLock.unlock();
 }
 
 void runLayer(RasterizeArgs* args) {
@@ -234,72 +236,38 @@ void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers) {
     std::list<std::thread> threads;
 
 
-    bool useThreads{true};
-    if (useThreads) {
-        if (true) {
-            int numberCores{(int) std::thread::hardware_concurrency()};
-//            numberCores = 1;
+    int numberCores{(int) std::thread::hardware_concurrency()};
+            numberCores = 1;
 
-            std::cout << "Max cores: " << std::thread::hardware_concurrency() << std::endl;
-            for (auto layer: layers) {
-                auto *stepArgs = new RasterizeArgs();
-                stepArgs->layerNumber = layerNumber;
-                stepArgs->layer = layer;
-                stepArgs->scale = scale;
-                stepArgs->minVertex = minVertex;
-                stepArgs->arraySize = arraySize;
-                workItems.push(stepArgs);
-                layerNumber++;
-            }
-            for (int i = 0; i < numberCores; i++) {
-                threads.emplace_back(workerFunction);
-            }
-            for (auto &t : threads) {
-                t.join();
-            }
-            threads.clear();
-
-        } else {
-            std::cout << "Max cores: " << std::thread::hardware_concurrency() << std::endl;
-            for (auto layer: layers) {
-//        rasterizeLayer(layerNumber, layer, arraySize, minVertex, scale);
-                auto *stepArgs = new RasterizeArgs();
-                stepArgs->layerNumber = layerNumber;
-                stepArgs->layer = layer;
-                stepArgs->scale = scale;
-                stepArgs->minVertex = minVertex;
-                stepArgs->arraySize = arraySize;
-                workItems.push(stepArgs);
-
-                threads.emplace_back(runLayer, stepArgs);
-
-                layerNumber++;
-            }
-            for (auto &t : threads) {
-                t.join();
-            }
-            threads.clear();
-//            for (std::list<RasterizeArgs *>::iterator i = workItems.begin(); i != workItems.end(); i++) {
-//                delete *i;
-//            }
-        }
-    } else {
-        for (auto layer: layers) {
-            rasterizeLayer(layerNumber, layer, arraySize, minVertex, scale);
-            layerNumber++;
-        }
+    std::cout << "Layers: " << layers.size() << "  Cores: " << std::thread::hardware_concurrency() << std::endl;
+    for (auto layer: layers) {
+        auto *stepArgs = new RasterizeArgs();
+        stepArgs->layerNumber = layerNumber;
+        stepArgs->layer = layer;
+        stepArgs->scale = scale;
+        stepArgs->minVertex = minVertex;
+        stepArgs->arraySize = arraySize;
+        workItems.push(stepArgs);
+        layerNumber++;
     }
-
+    for (int i = 0; i < numberCores; i++) {
+        threads.emplace_back(workerFunction);
+    }
+    for (auto &t : threads) {
+        t.join();
+    }
+    threads.clear();
+    std::cout << std::endl;
 }
 
 int main() {
     double epsilon{0.0001};
-    double layerHeight{.1};
+    double layerHeight{10};
     Timer timer;
 
 //    TriangleMesh mesh("../parts/cube_10x10x10.stl", epsilon);
-    TriangleMesh mesh("../parts/bblocky.stl", epsilon);
-//    TriangleMesh mesh("../parts/pisa.stl", epsilon);
+//    TriangleMesh mesh("../parts/bblocky.stl", epsilon);
+    TriangleMesh mesh("../parts/pisa.stl", epsilon);
 
     std::cout << "Read Time: " << timer.elapsed() << " seconds" << std::endl;
 
