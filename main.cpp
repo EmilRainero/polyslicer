@@ -237,26 +237,35 @@ void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers) {
 
 
     int numberCores{(int) std::thread::hardware_concurrency()};
-            numberCores = 1;
+    numberCores = 1;
+    std::cout << "Layers: " << layers.size() << "  Cores: " << numberCores << std::endl;
 
-    std::cout << "Layers: " << layers.size() << "  Cores: " << std::thread::hardware_concurrency() << std::endl;
-    for (auto layer: layers) {
-        auto *stepArgs = new RasterizeArgs();
-        stepArgs->layerNumber = layerNumber;
-        stepArgs->layer = layer;
-        stepArgs->scale = scale;
-        stepArgs->minVertex = minVertex;
-        stepArgs->arraySize = arraySize;
-        workItems.push(stepArgs);
-        layerNumber++;
+    if (numberCores > 1) {
+        for (auto layer: layers) {
+            auto *stepArgs = new RasterizeArgs();
+            stepArgs->layerNumber = layerNumber;
+            stepArgs->layer = layer;
+            stepArgs->scale = scale;
+            stepArgs->minVertex = minVertex;
+            stepArgs->arraySize = arraySize;
+            workItems.push(stepArgs);
+            layerNumber++;
+        }
+        for (int i = 0; i < numberCores; i++) {
+            threads.emplace_back(workerFunction);
+        }
+        for (auto &t : threads) {
+            t.join();
+        }
+        threads.clear();
+    } else {
+        int layerNumber{0};
+        for (auto layer: layers) {
+            rasterizeLayer(layerNumber, layer, arraySize, minVertex, scale);
+            layerNumber++;
+        }
     }
-    for (int i = 0; i < numberCores; i++) {
-        threads.emplace_back(workerFunction);
-    }
-    for (auto &t : threads) {
-        t.join();
-    }
-    threads.clear();
+
     std::cout << std::endl;
 }
 
