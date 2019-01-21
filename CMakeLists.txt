@@ -30,7 +30,7 @@ FIND_PACKAGE (Threads)
 #add_executable(polyslicer ${sources})
 
 set( executable "polyslicer" )
-add_executable( ${executable} "")
+add_executable( ${executable} "" ScanlineFill.cpp ScanlineFill.h)
 
 target_link_libraries( ${executable}  ${CMAKE_THREAD_LIBS_INIT} )
 

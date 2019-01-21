@@ -1,13 +1,17 @@
 project(${CMAKE_PROJECT_NAME})
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
+SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
+
 
 set(sources
         main.cpp
         EdgeListTest.cpp
+        ScanlineFillTest.cpp
 
         ../Image.cpp
         ../EdgeTable.cpp
+        ../ScanlineFill.cpp
         )
 
 set(executable "unittests")
