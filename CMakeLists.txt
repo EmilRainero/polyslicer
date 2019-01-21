@@ -45,3 +45,7 @@ target_sources( ${executable}
         ${sources}
         ${headers}
         )
+
+include(GoogleTest)
+
+add_subdirectory("unittests")

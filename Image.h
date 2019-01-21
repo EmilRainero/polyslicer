@@ -5,7 +5,7 @@
 #ifndef RASTERIZE_IMAGE_H
 #define RASTERIZE_IMAGE_H
 
-#include "rasterize/Color.h"
+#include "Color.h"
 
 class Image {
 public:
