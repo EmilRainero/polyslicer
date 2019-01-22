@@ -146,6 +146,9 @@ void EdgeTable::scanFill(Polygon2i P, Image& image, const Color& value) {   // n
     EdgeTable EdgeTable;
     std::list <Node> AEL;
 
+//    for (auto pt: P.pt) {
+//        std::cout << "  " << pt.x << "," << pt.y << std::endl;
+//    }
     EmptyList.push_front(EmptyNode); // and empty list
     // build the edge table - need the window size
     for (int i = 0; i < image.height; i++)

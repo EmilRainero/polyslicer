@@ -1,19 +1,6 @@
-//
-// Created by erainero on 1/21/19.
-//
-
 #include "ScanlineFill.h"
-
-//
-// Created by erainero on 11/20/18.
-//
-
 #include <iostream>
-
 #include "EdgeTable.h"
-
-//Node EmptyNode;  // an empty node
-//std::list <Node> EmptyList;  // an empty list
 
 void ScanlineFill::insertEdge(std::set <Node> &orderedList, const Node &item) {
 //    std::list<Node>::iterator curr = orderedList.begin(),
@@ -21,6 +8,11 @@ void ScanlineFill::insertEdge(std::set <Node> &orderedList, const Node &item) {
 //    while ((curr != stop) && ((*curr).xIntersect < item.xIntersect))
 //        curr++;
 //    orderedList.insert(curr, item);
+
+//    for (auto n: orderedList) {
+//        std::cout << n.xIntersect << " ";
+//    }
+//    std::cout << "insert " << item.xIntersect << std::endl;
     orderedList.insert(item);
 }
 
@@ -55,15 +47,21 @@ void ScanlineFill::buildAEL(std::set <Node> &AEL, std::set <Node> ET) {
 //        insertEdge(AEL, *iter);
 //        iter++;
 //    }
+
+//    std::cout << "buildAEL before " << AEL.size() << "  ET " << ET.size()  << std::endl;
     for (auto node: ET) {
         insertEdge(AEL, node);
     }
+//    std::cout << "buildAEL after " << AEL.size() << std::endl;
 }
 
 void ScanlineFill::fillScan(int y, std::set <Node> L, Image& image, const Color& value) {
     // want to pull off pairs of x values from adjacent
     // nodes in the list - the y value = scan line
     std::set<Node>::iterator iter1 = L.begin(), iter2;
+
+    if (L.size() % 2 != 0)
+        std::cout << "fillScan " << L.size() << std::endl;
 
     int x1, x2;
     while (iter1 != L.end()) {
@@ -90,19 +88,24 @@ void ScanlineFill::updateAEL(int y, std::set <Node> &L) {   // delete completed 
 //        }
 
 
-    std::list<Node> nodesToDelete;
+    std::list<std::set<Node>::iterator> nodesToDelete;
+
+//    std::cout << "updateAEL before " << L.size() << " items" << std::endl;
 
     for (std::set<Node>::iterator iter = L.begin(); iter != L.end(); ++iter) {
-        if (y >= (*iter).yUpper)
-            nodesToDelete.push_back(*iter);
+        if (y == (*iter).yUpper)
+            nodesToDelete.push_back(iter);
         else {
             Node &writableNode = const_cast<Node&>(*iter);
             writableNode.xIntersect += writableNode.dxPerScan;
         }
     }
-    for (auto node: nodesToDelete) {
-        L.erase(node);
+    for (auto nodeIter: nodesToDelete) {
+//        std::cout << "erase " << node.yUpper << std::endl;
+        L.erase(nodeIter);
     }
+
+//    std::cout << "updateAEL after " << L.size() << " items" << std::endl;
 
 //    for (Node& node: L) {
 //        if (y >= node.yUpper) {
@@ -193,6 +196,9 @@ void ScanlineFill::scanFill(Polygon2i P, Image& image, const Color& value) {   /
 
     std::set <Node> EmptyList;  // an empty list
 
+//    for (auto pt: P.pt) {
+//        std::cout << "  " << pt.x << "," << pt.y << std::endl;
+//    }
     for (int i = 0; i < image.height; i++)
         edgeTable.Edges.push_back(EmptyList);
 
@@ -201,14 +207,13 @@ void ScanlineFill::scanFill(Polygon2i P, Image& image, const Color& value) {   /
 //    edgeTable.printEdgeTable();
     // filling requires building and using AEL
     for (int scanLine = 0; scanLine < image.height; scanLine++) {    // could add output data on table
+//        std::cout << "Scanline: " << scanLine << " edgetable size: " << edgeTable.Edges[scanLine].size() << std::endl;
         buildAEL(AEL, edgeTable.Edges[scanLine]);
         if (!AEL.empty()) {    // if needed print the table
 //            std::cout << "SCANLINE " << scanLine << std::endl;
 //            writeListInfo(AEL);
 //            std::cout << "Scan line: " << scanLine << " " << AEL.size() << std::endl;
 
-
-//            writeListInfo(AEL);
             updateAEL(scanLine, AEL);
 
 //            std::cout << "updated" << std::endl;

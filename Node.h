@@ -8,14 +8,26 @@
 
 class Node {
 public:
-    Node() : yUpper(-1), xIntersect(-1.0), dxPerScan(0.0) {};
     int yUpper;
     float xIntersect, dxPerScan;
 
+    Node() : yUpper(-1), xIntersect(-1.0), dxPerScan(0.0) {
+        static int idCounter = 0;
+        id = idCounter++;
+    };
+
     bool operator< (const Node & b) const
     {
-        return (xIntersect < b.xIntersect);
+        return (xIntersect < b.xIntersect) ||
+                (xIntersect == b.xIntersect && id < b.id);
     }
+
+    bool operator= (const Node & b) const
+    {
+        return (xIntersect == b.xIntersect && id ==b.id);
+    }
+private:
+    int id;
 };
 
 

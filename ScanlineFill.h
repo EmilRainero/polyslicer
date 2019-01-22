@@ -23,19 +23,19 @@ public:
 
     void makeEdgeRecord(Point2i, Point2i, int);
 
-    static void fillScan(int y, std::set <Node> L, Image& image, const Color& value);
+    void fillScan(int y, std::set <Node> L, Image& image, const Color& value);
 
-    static void scanFill(Polygon2i P, Image& image, const Color& value);
+    void scanFill(Polygon2i P, Image& image, const Color& value);
 
-    static void insertEdge(std::set <Node> &orderedList, const Node &item);
+    void insertEdge(std::set <Node> &orderedList, const Node &item);
 
-    static void writeListInfo(std::set <Node> &L);
+    void writeListInfo(std::set <Node> &L);
 
-    static void buildAEL(std::set <Node> &AEL, std::set <Node> ET);
+    void buildAEL(std::set <Node> &AEL, std::set <Node> ET);
 
-    static void updateAEL(int y, std::set <Node> &L);
+    void updateAEL(int y, std::set <Node> &L);
 
-    static void resortAEL(std::set <Node> &L);
+    void resortAEL(std::set <Node> &L);
 
     void printEdgeTable();
 

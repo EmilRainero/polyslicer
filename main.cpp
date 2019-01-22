@@ -10,6 +10,7 @@
 #include "Timer.h"
 #include "Image.h"
 #include "EdgeTable.h"
+#include "ScanlineFill.h"
 #include "LodePNG.h"
 #include "LodePNGImage.h"
 
@@ -143,7 +144,12 @@ Image rasterizeLayer(Layer *layer, int xSize, int ySize) {
              */
 
 //            std::cout << "fill " << polygon.interior << std::endl;
-            EdgeTable::scanFill(polygon, image, polygon.interior ? backgroundColor : foregroundColor);
+            {
+                ScanlineFill scanlineFill;
+                scanlineFill.scanFill(polygon, image, polygon.interior ? backgroundColor : foregroundColor);
+
+            }
+//            EdgeTable::scanFill(polygon, image, polygon.interior ? backgroundColor : foregroundColor);
         }
     }
 
@@ -217,9 +223,7 @@ void workerFunction() {
     }
 }
 
-void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers) {
-    int arraySize{2048};
-
+void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers, int numberCores, int arraySize) {
     auto minVertex = mesh.getBottomLeftVertex();
     auto maxVertex = mesh.getTopRightVertex();
 
@@ -235,10 +239,7 @@ void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers) {
 
     std::list<std::thread> threads;
 
-
-    int numberCores{(int) std::thread::hardware_concurrency()};
-    numberCores = 1;
-    std::cout << "Layers: " << layers.size() << "  Cores: " << numberCores << std::endl;
+    std::cout << "Layers: " << layers.size() << "  Cores: " << numberCores << "  Image size: " << arraySize << "^2" << std::endl;
 
     if (numberCores > 1) {
         for (auto layer: layers) {
@@ -272,8 +273,11 @@ void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers) {
 int main() {
     double epsilon{0.0001};
     double layerHeight{10};
-    Timer timer;
+    int arraySize{10 * 1024};
+    int numberCores{(int) std::thread::hardware_concurrency()};
+    numberCores = 11;
 
+    Timer timer;
 //    TriangleMesh mesh("../parts/cube_10x10x10.stl", epsilon);
 //    TriangleMesh mesh("../parts/bblocky.stl", epsilon);
     TriangleMesh mesh("../parts/pisa.stl", epsilon);
@@ -287,7 +291,8 @@ int main() {
     std::cout << "Slice Time: " << timer.elapsed() << " seconds" << std::endl;
 
     timer.reset();
-    rasterizeLayers(mesh, layers);
+
+    rasterizeLayers(mesh, layers, numberCores, arraySize);
     std::cout << "Rasterize Time: " << timer.elapsed() << " seconds" << std::endl;
 
 //    minimizeContour(layers[layers.size()-1]->contours[0]);
