@@ -13,6 +13,7 @@
 #include "ScanlineFill.h"
 #include "LodePNG.h"
 #include "LodePNGImage.h"
+#include "PeakMemory.h"
 
 
 std::vector<Vector3> minimizeContour(Contour& contour) {
@@ -87,13 +88,12 @@ void simplifyPoints(std::vector<Point2i>& points) {
 
 }
 
-Image rasterizeLayer(Layer *layer, int xSize, int ySize) {
-    Image image(xSize, ySize);
+std::mutex queueLock;
+
+void rasterizeLayer(Layer *layer, Image& image, int layerNumber) {
 
     Color backgroundColor(0);
     Color foregroundColor(255);
-
-//    std::cout << "Rasterize " << layer->z << std::endl;
 
     for (int i = 0; i < 2; i++) {
 
@@ -110,50 +110,19 @@ Image rasterizeLayer(Layer *layer, int xSize, int ySize) {
                 polygon.pt.push_back(pt);
 
             }
-            simplifyPoints(polygon.pt);
+//            simplifyPoints(polygon.pt);
 
             polygon.interior = !contour.external;
 
-//            typedef struct {
-//                int x, y;
-//            } Point;
-//            int data[][2] = {
-//                    {0,1},
-//                    {1,11},
-//                    {11,11},
-//                    {11,1},
-//                    {0,1},
-//            };
-//            int n = sizeof(data) / sizeof(int *);
-//            polygon.pt.clear();
-//            for (int i = 0; i < n; i++) {
-//                Point2i p(data[i][0], data[i][1]);
-//                polygon.pt.push_back((p));
-//            }
-
-            /*
-             *   when 1
-             *   contents: -1 0 0
-             *   contents: 11 1 0
-             *   contents: 11 11 0
-             *
-             *   when 0
-             *   contents: 11 0 0.1
-             *   contents: -1 0 0
-             *   contents: 11 11 0
-             */
-
-//            std::cout << "fill " << polygon.interior << std::endl;
             {
                 ScanlineFill scanlineFill;
-                scanlineFill.scanFill(polygon, image, polygon.interior ? backgroundColor : foregroundColor);
+                scanlineFill.scanFill(polygon, image, polygon.interior ? backgroundColor : foregroundColor, layerNumber);
 
             }
 //            EdgeTable::scanFill(polygon, image, polygon.interior ? backgroundColor : foregroundColor);
         }
     }
 
-    return image;
 }
 
 std::string ZeroPadNumber(int number, int digits) {
@@ -168,16 +137,20 @@ struct RasterizeArgs {
     int arraySize;
     Vector3 minVertex;
     double scale;
+    bool writeImage;
 } ;
 
-std::mutex coutLock;
 
-void rasterizeLayer(int layerNumber, Layer* layer, int arraySize, Vector3& minVertex, double scale) {
+void rasterizeLayer(int layerNumber, Layer* layer, int arraySize, Vector3& minVertex, double scale, bool writeImage) {
     std::string filename = "layer-" + ZeroPadNumber(layerNumber, 5) + ".png";
 
+    Timer timer;
     rescaleLayer(layer, minVertex.x, minVertex.y, scale);
-    auto image = rasterizeLayer(layer, arraySize, arraySize);
-    if (true) {
+
+    Image image(arraySize, arraySize);
+
+    rasterizeLayer(layer, image, layerNumber);
+    if (writeImage) {
         LodePNGImage pngImage(arraySize, arraySize, 0);
         for (int y = 0; y < arraySize; y++) {
             for (int x = 0; x < arraySize; x++) {
@@ -190,18 +163,16 @@ void rasterizeLayer(int layerNumber, Layer* layer, int arraySize, Vector3& minVe
         pngImage.write(filename.c_str());
     }
 
-//    coutLock.lock();
+//    std::cout << ZeroPadNumber(layerNumber, 5) << "(" << timer.elapsed() << ", " << getCurrentRSS( ) / 1024 / 1248 << ") " << std::flush;
     std::cout << ZeroPadNumber(layerNumber, 5) << " " << std::flush;
-    if (layerNumber > 0 && layerNumber % 20 == 0)
+    if (layerNumber > 0 && layerNumber % 20 == 19)
         std::cout << std::endl;
-//    coutLock.unlock();
 }
 
 void runLayer(RasterizeArgs* args) {
-    rasterizeLayer(args->layerNumber, args->layer, args->arraySize, args->minVertex, args->scale);
+    rasterizeLayer(args->layerNumber, args->layer, args->arraySize, args->minVertex, args->scale, args->writeImage);
 }
 
-std::mutex queueLock;
 std::queue<RasterizeArgs*> workItems;
 
 void workerFunction() {
@@ -214,16 +185,13 @@ void workerFunction() {
         auto workItem = workItems.front();
         workItems.pop();
         queueLock.unlock();
-//        coutLock.lock();
-//        std::cout << "Hi " <<  workItem->layerNumber << std::endl;
-//        coutLock.unlock();
         runLayer(workItem);
 
         delete workItem;
     }
 }
 
-void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers, int numberCores, int arraySize) {
+void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers, int numberCores, int arraySize, bool writeImages) {
     auto minVertex = mesh.getBottomLeftVertex();
     auto maxVertex = mesh.getTopRightVertex();
 
@@ -262,7 +230,7 @@ void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers, int number
     } else {
         int layerNumber{0};
         for (auto layer: layers) {
-            rasterizeLayer(layerNumber, layer, arraySize, minVertex, scale);
+            rasterizeLayer(layerNumber, layer, arraySize, minVertex, scale, writeImages);
             layerNumber++;
         }
     }
@@ -272,10 +240,12 @@ void rasterizeLayers(TriangleMesh &mesh, std::vector<Layer *> layers, int number
 
 int main() {
     double epsilon{0.0001};
-    double layerHeight{10};
+    double layerHeight{.1};
     int arraySize{10 * 1024};
+    bool writeImages{true};
     int numberCores{(int) std::thread::hardware_concurrency()};
-    numberCores = 11;
+//    numberCores = 1;
+    writeImages = false;
 
     Timer timer;
 //    TriangleMesh mesh("../parts/cube_10x10x10.stl", epsilon);
@@ -292,7 +262,7 @@ int main() {
 
     timer.reset();
 
-    rasterizeLayers(mesh, layers, numberCores, arraySize);
+    rasterizeLayers(mesh, layers, numberCores, arraySize, writeImages);
     std::cout << "Rasterize Time: " << timer.elapsed() << " seconds" << std::endl;
 
 //    minimizeContour(layers[layers.size()-1]->contours[0]);

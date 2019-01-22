@@ -12,6 +12,10 @@ Image::Image(int width, int height) : width(width), height(height) {
     buffer = (unsigned char*) calloc(height * width, sizeof(unsigned char));
 }
 
+Image::~Image() {
+    free(buffer);
+}
+
 void Image::setPixels(int y, int x1, int x2, const Color& color) {
 //    std::cout << y << "  " << x1 << "-" << x2 << std::endl;
     if (    y < 0 || y >= height ||

@@ -1,6 +1,11 @@
 #include "ScanlineFill.h"
 #include <iostream>
+#include <mutex>
+
 #include "EdgeTable.h"
+
+std::mutex scanfilllock;
+
 
 void ScanlineFill::insertEdge(std::set <Node> &orderedList, const Node &item) {
 //    std::list<Node>::iterator curr = orderedList.begin(),
@@ -60,8 +65,10 @@ void ScanlineFill::fillScan(int y, std::set <Node> L, Image& image, const Color&
     // nodes in the list - the y value = scan line
     std::set<Node>::iterator iter1 = L.begin(), iter2;
 
-    if (L.size() % 2 != 0)
-        std::cout << "fillScan " << L.size() << std::endl;
+    if (L.size() % 2 != 0) {
+        std::cout << "fillScan # nodes " << L.size() << " layer: " << layerNumber << " y: " << y << std::endl;
+        return;
+    }
 
     int x1, x2;
     while (iter1 != L.end()) {
@@ -167,7 +174,11 @@ void ScanlineFill::makeEdgeRecord(Point2i lower, Point2i upper,
 //    else
     n.yUpper = upper.y;
 //    std::cout << "EDGE " << n.yUpper << " " << n.xIntersect << " " << n.dxPerScan << std::endl;
-    insertEdge(Edges[lower.y], n);
+
+//    insertEdge(Edges[lower.y], n);
+
+    Edges[lower.y].insert(n);
+
 }
 
 void ScanlineFill::buildTable(const Polygon2i &Poly) {
@@ -190,41 +201,34 @@ void ScanlineFill::buildTable(const Polygon2i &Poly) {
     }
 }
 
-void ScanlineFill::scanFill(Polygon2i P, Image& image, const Color& value) {   // need an edge table and AEL
+
+void ScanlineFill::scanFill(Polygon2i P, Image& image, const Color& value, int layerNumber) {
     ScanlineFill edgeTable;
     std::set <Node> AEL;
 
+    this->layerNumber = layerNumber;
     std::set <Node> EmptyList;  // an empty list
 
+    // print polygon
 //    for (auto pt: P.pt) {
 //        std::cout << "  " << pt.x << "," << pt.y << std::endl;
 //    }
     for (int i = 0; i < image.height; i++)
         edgeTable.Edges.push_back(EmptyList);
 
+    scanfilllock.lock();
     edgeTable.buildTable(P);
-    // if needed - print the table here
+    scanfilllock.unlock();
+
 //    edgeTable.printEdgeTable();
     // filling requires building and using AEL
     for (int scanLine = 0; scanLine < image.height; scanLine++) {    // could add output data on table
 //        std::cout << "Scanline: " << scanLine << " edgetable size: " << edgeTable.Edges[scanLine].size() << std::endl;
         buildAEL(AEL, edgeTable.Edges[scanLine]);
         if (!AEL.empty()) {    // if needed print the table
-//            std::cout << "SCANLINE " << scanLine << std::endl;
-//            writeListInfo(AEL);
-//            std::cout << "Scan line: " << scanLine << " " << AEL.size() << std::endl;
-
             updateAEL(scanLine, AEL);
-
-//            std::cout << "updated" << std::endl;
-
             fillScan(scanLine, AEL, image, value);
-//            std::cout << "  filled: " << AEL.size() << std::endl;
-
-            resortAEL(AEL);
-//            std::cout << "  resorted: " << AEL.size() << std::endl;
-
-//            std::cout << "Done" << std::endl;
+//            resortAEL(AEL);
         }
     }
 }

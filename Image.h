@@ -11,6 +11,8 @@ class Image {
 public:
     Image(int width, int height);
 
+    ~Image();
+
     void setPixels(int y, int x1, int x2, const Color& color);
     int getPixel(int x, int y) {
         return buffer[y*width + x];

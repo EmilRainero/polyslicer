@@ -25,7 +25,7 @@ public:
 
     void fillScan(int y, std::set <Node> L, Image& image, const Color& value);
 
-    void scanFill(Polygon2i P, Image& image, const Color& value);
+    void scanFill(Polygon2i P, Image& image, const Color& value, int layerNumber);
 
     void insertEdge(std::set <Node> &orderedList, const Node &item);
 
@@ -40,6 +40,9 @@ public:
     void printEdgeTable();
 
     std::vector <std::set<Node>> Edges;
+
+protected:
+    int layerNumber;
 };
 
 
