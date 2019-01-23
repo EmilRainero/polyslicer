@@ -178,17 +178,21 @@ void ScanlineFill::makeEdgeRecord(Point2i lower, Point2i upper,
 //    insertEdge(Edges[lower.y], n);
 
     Edges[lower.y].insert(n);
-
 }
 
 void ScanlineFill::buildTable(const Polygon2i &Poly) {
     Point2i v1, v2;
     int i, yPrev;
 
-    yPrev = Poly.pt[Poly.pt.size() - 2].y;
-    v1.x = Poly.pt[Poly.pt.size() - 1].x;
-    v1.y = Poly.pt[Poly.pt.size() - 1].y;
-    for (i = 0; i < Poly.pt.size(); i++) {
+    int size = Poly.pt.size();
+    if (size < 3) {
+//        std::cerr << "****** buildTable bad poly *****" << std::endl;
+        return;
+    }
+    yPrev = Poly.pt[size - 2].y;
+    v1.x = Poly.pt[size - 1].x;
+    v1.y = Poly.pt[size - 1].y;
+    for (i = 0; i < size; i++) {
         v2 = Poly.pt[i];
         if (v1.y != v2.y) { // non horizontal edge
             if (v1.y < v2.y)
